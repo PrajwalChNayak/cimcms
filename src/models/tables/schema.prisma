@@ -1,0 +1,108 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+  
+}
+
+model Role {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  roleName        String           @unique
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  users           User[]
+  rolePermissions RolePermission[]
+}
+
+model Permission {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  permissionName  String           @unique
+  description     String?
+  createdAt       DateTime         @default(now())
+  rolePermissions RolePermission[]
+}
+
+model Module {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  moduleName      String           @unique
+  description     String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String     @db.ObjectId
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String     @db.ObjectId
+  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  moduleId     String     @db.ObjectId
+
+  @@unique([roleId, permissionId, moduleId])
+}
+
+model User {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  username   String    @unique
+  email      String    @unique
+  password   String    // For password_hash
+  firstName  String?
+  lastName   String?
+  isActive   Boolean   @default(true)
+  role       Role?     @relation(fields: [roleId], references: [id])
+  roleId     String?   @db.ObjectId
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastLogin  DateTime?
+}
+
+model WaterFlowData {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  timestamp   DateTime
+  flowRate    Float
+  totalLiters Float
+  temperature Float
+  humidity    Float
+  macAddress  String
+  deviceId    String?  @db.ObjectId
+  isActive    Boolean? @default(true)
+  createdAt   DateTime? @default(now())
+  updatedAt   DateTime?
+
+  // Additional useful fields
+  location    String?
+  pressure    Float?
+  pH          Float?
+  tds         Float?   // Total Dissolved Solids
+  conductivity Float?  // Water conductivity
+  turbidity   Float?   // Water clarity measurement
+  alerts      Alert[]  // Relation to potential alerts
+
+  @@index([macAddress])
+  @@index([timestamp])
+  @@index([deviceId])
+}
+
+model Alert {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  type          String      // e.g., "HIGH_FLOW", "LOW_PRESSURE", etc.
+  message       String
+  severity      String      // e.g., "LOW", "MEDIUM", "HIGH"
+  isResolved    Boolean     @default(false)
+  waterFlowData WaterFlowData @relation(fields: [flowDataId], references: [id])
+  flowDataId    String       @db.ObjectId
+  createdAt     DateTime    @default(now())
+  resolvedAt    DateTime?
+
+  @@index([type])
+  @@index([severity])
+  @@index([flowDataId])
+}
