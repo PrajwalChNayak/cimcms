@@ -1,110 +1,89 @@
-# Project Name
+# Aqua Solve IoT
 
 ## 📝 Description
-A clear and concise description of your project. Answer these questions:
-- What does this project do?
-- What problem does it solve?
-- Who is it for?
+Aqua Solve IoT is an Arduino-based smart water quality monitoring system designed for aquaculture environments. It combines affordable sensors with cloud connectivity to provide real-time monitoring and automated alerts.
 
 ## ⚡️ Key Features
-- Feature 1 and its benefit
-- Feature 2 and its benefit
-- Feature 3 and its benefit
+- Real-time monitoring of:
+  - pH levels (0-14 range)
+  - Water temperature (0-50°C)
+  - TDS (Total Dissolved Solids)
+  - Turbidity
+- Arduino-based sensor integration
+- Web dashboard for data visualization
+- SMS and email alerts for critical conditions
+- Historical data logging
 
 ## 🚀 Installation
 
 ```bash
-# Basic installation steps
-git clone https://github.com/username/project-name.git
-cd project-name
+# Clone the repository
+git clone https://github.com/cpballresearch/aqua_solve_iot.git
+cd aqua_solve_iot
 
-# Install dependencies
-npm install   # For Node.js projects
-pip install -r requirements.txt   # For Python projects
-# Add other relevant installation commands
+# Arduino Setup
+npm install 
+
+npm run generate:prisma
 ```
 
-## 💻 Usage
-Show basic usage examples:
+## ⚙️ Hardware Requirements
+- Arduino Uno/ESP8266
+- pH Sensor Module
+- DS18B20 Temperature Sensor
+- TDS Sensor
+- Turbidity Sensor
+- LCD Display (16x2)
 
-```javascript
-// Basic usage example
-const projectName = require('project-name');
-projectName.doSomething();
+## 💻 Configuration
+Update `config.h` with your settings:
+
+```cpp
+#define WIFI_SSID "your_ssid"
+#define WIFI_PASSWORD "your_password"
+#define ALERT_PHONE "+1234567890"
+
+const float pH_THRESHOLD_MIN = 6.0;
+const float pH_THRESHOLD_MAX = 8.0;
+const float TEMP_THRESHOLD = 30.0;
 ```
-
-Add screenshots or GIFs here to demonstrate the project in action.
-
-## ⚙️ Configuration
-Explain any configuration options:
-
-```json
-{
-  "setting1": "value1",
-  "setting2": "value2"
-}
-```
-
-## 📊 API Reference
-If your project has an API, document the main endpoints:
-
-### `functionName(param1, param2)`
-- **Purpose**: What this function does
-- **Parameters**:
-  - `param1`: Description of param1
-  - `param2`: Description of param2
-- **Returns**: What the function returns
-- **Example**:
-  ```javascript
-  // Usage example
-  ```
 
 ## 🧪 Testing
-Explain how to run tests:
+Run the test suite:
 
 ```bash
 npm test
-pytest
-# Add other test commands
 ```
 
 ## 🤝 Contributing
-Explain how others can contribute to your project:
-
 1. Fork the repository
-2. Create a new branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Commit your changes (`git commit -m 'Add amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📝 License
-This project is licensed under the [LICENSE NAME] - see the [LICENSE.md](LICENSE.md) file for details.
-
-## 👏 Acknowledgments
-- Credit any third-party assets, libraries, or resources
-- Thank contributors or inspirations
-- Link to related projects
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
 ## 📞 Contact
-- Your Name - [@twitter_handle](https://twitter.com/twitter_handle)
-- Email - email@example.com
-- Project Link: [https://github.com/username/project-name](https://github.com/username/project-name)
+- Developer:  CPB
+- Email: cpb@gmail.com
+- Project Link: https://github.com/cpballresearch/aqua_solve_iot.git
 
 ## 🗺️ Roadmap
-- [x] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
+- [x] Basic sensor integration
+- [x] Web dashboard
+- [ ] Mobile app development
+- [ ] LoRa connectivity support
+- [ ] AI-based prediction system
 
 ## ❗️ Known Issues
-List any known bugs or limitations:
-- Issue 1 and potential workaround
-- Issue 2 and potential workaround
+- pH sensor requires weekly calibration
+- Web dashboard may need refresh for real-time updates
 
 ## 📈 Version History
-- 1.0.0
-  - Initial Release
-  - List of features
-- 0.9.0
-  - Beta Release
-  - List of features
+- 0.1.2
+  - Implemented SMS alerts
+- 0.0.1
+  - Initial prototype
+  - Basic pH and temperature monitoring
