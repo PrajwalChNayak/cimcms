@@ -33,3 +33,4 @@ export const fileUploadSettings = {
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE),
   allowedExtensions: process.env.ALLOWED_EXTENSIONS.split(",")
 };
+export const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;

@@ -1,7 +1,5 @@
 node_modules
 npm-debug.log
-.env
-.env.*
 .git
 .gitignore
 .dockerignore
@@ -14,3 +12,5 @@ coverage
 dist
 build
 *.log
+# Remove .env from ignore list
+.env.*

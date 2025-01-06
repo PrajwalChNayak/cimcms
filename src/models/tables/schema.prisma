@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
-  
+   
 }
 
 model Role {
@@ -28,32 +28,22 @@ model Permission {
   rolePermissions RolePermission[]
 }
 
-model Module {
-  id              String           @id @default(auto()) @map("_id") @db.ObjectId
-  moduleName      String           @unique
-  description     String?
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  rolePermissions RolePermission[]
-}
-
 model RolePermission {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   roleId       String     @db.ObjectId
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   permissionId String     @db.ObjectId
-  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  moduleId     String     @db.ObjectId
 
-  @@unique([roleId, permissionId, moduleId])
+  @@unique([roleId, permissionId])
 }
 
 model User {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
   username   String    @unique
   email      String    @unique
-  password   String    // For password_hash
+  password   String    // Use hashed passwords
+  salt       String    // Use for password hashing
   firstName  String?
   lastName   String?
   isActive   Boolean   @default(true)

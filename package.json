@@ -8,6 +8,7 @@
     "schema": "./src/models/tables/schema.prisma" 
   },
   "scripts": {
+       "dev":"nodemon app.js",
        "generate:prisma": "prisma generate",
        "migrate:dev:name": "prisma migrate dev --name  $NAME",
        "migrate:dev": "prisma migrate dev ",
