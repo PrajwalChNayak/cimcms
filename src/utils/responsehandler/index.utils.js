@@ -217,9 +217,9 @@ const handelDataDelete = (res) => {
  * Handle data update.
  * @param {Object} res - The response object.
  */
-const handelDataUpdate = (res) => {
+const handelDataUpdate = (res,data) => {
     const response = createResponse(
-        null,
+        data,
         Constants.HTTPOK,
         Constants.SUCCESS_STATUS,
         Constants.DATA_UPDATE_SUCCESS_MESSAGE

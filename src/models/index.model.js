@@ -7,7 +7,7 @@ if (process.env.NODE_ENV === 'production') {
   //? In production, Prisma Client is initialized once for the lifecycle of the application
   prisma = new PrismaClient({
     log: ['error']
-  });
+  }); 
 } else {
   //? In development, Prisma Client is initialized every time to handle hot-reloads
   if (!global.prisma) {

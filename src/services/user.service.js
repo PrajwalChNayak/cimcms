@@ -1,77 +1,92 @@
+import jwt from 'jsonwebtoken';
+import authHashPassword from "../middleware/auth.hash.password.js";
 import UserRepository from "../repositories/user.repository.js";
-// import { deletefileFromMinio } from "../utils/filedelete.utils.js";
-import Sha512 from "../utils/sha512.utils.js";
+import { JWT_SECRET_KEY } from '../utils/config.utils.js';
 
 class UserService {
-    static async createUser(userData) {
-        const hashedPassword=await Sha512.Sha512Encryption(userData?.password);
-        return await UserRepository.createUser({
-            ...userData,
-            password: hashedPassword,
-        });
-    }
-
-    static async getRandomKey(){
-      const getRandomKeyValue=await Sha512.generateSalt();
-      const getEncryptedRandomKeyValue=await Sha512.encryptText(getRandomKeyValue);
-      return getEncryptedRandomKeyValue;
+  //#Role
+  static async createRole(roleData) {
+    return await UserRepository.createRole(roleData);
   }
 
-  static async loginUser(email, inputPassword,randomKey) {
-      const user = await UserRepository.getUserByEmail(email);
-      
-      // if the user doesn't exist then return null
-      if(!user) return null;
+  static async getAllRoles() {
+    return await UserRepository.getAllRoles();
+  }
 
-      const{password,...otherUserDetails}=user.toJSON();
-      const decryptRandomKeyValue=await Sha512.decryptText(randomKey);
-      const getPasswordSaltHashed=await Sha512.Sha512Encryption(`${password}#${decryptRandomKeyValue}`);
-      return (inputPassword===getPasswordSaltHashed) ? otherUserDetails :false;
+  static async getRoleById(roleId) {
+    return await UserRepository.getRoleById(roleId);
+  }
+
+  static async updateRole(roleId, roleData) {
+    return await UserRepository.updateRole(roleId, roleData);
+  }
+  //#Permission
+  static async createPermission(permissionData) {
+    return await UserRepository.createPermission(permissionData);
+  }
+
+  static async getAllPermissions() {
+    return await UserRepository.getAllPermissions();
+  }
+
+  static async getPermissionById(permissionId) {
+    return await UserRepository.getPermissionById(permissionId);
+  }
+  static async updatePermission(permissionId, permissionData) {
+    return await UserRepository.updatePermission(permissionId, permissionData);
+  }
+
+  //#RolePermission
+  static async assignPermissionToRole(rolePermissionData) {
+    return await UserRepository.assignPermissionToRole(rolePermissionData);
+  }
+
+  static async removePermissionFromRole(rolePermissionData) {
+    return await UserRepository.removePermissionFromRole(rolePermissionData);
+  }
+
+  static async getRolePermissions(roleId) {
+    return await UserRepository.getRolePermissions(roleId);
+  }
+
+  static async createUser(userData) {
+    const { password, ...otherDetails } = userData;
+    const salt = authHashPassword.generateSalt();
+    const hashedPassword = authHashPassword.hashPassword(password, salt);
+    return await UserRepository.createUser({
+      password: hashedPassword,
+      salt,
+      ...otherDetails,
+    });
+  }
+
+  static async getAllUsers(email) {
+    return await UserRepository.getAllUsers(email);
   }
 
   static async getUserById(userId) {
     return await UserRepository.getUserById(userId);
   }
 
-  static async updateUser(userId, updateData) {
-        
-    //first get the user details
-    const getUserDetails=await this.getUserById(userId);
-    // if the user details is not present then return null
-    if(!getUserDetails){
-        return null;
-    } 
+  static async updateUser(userId, userData) {
+    return await UserRepository.updateUser(userId, userData);
+  }
 
-    const hashedPassword=await Sha512.Sha512Encryption(updateData?.password);
-
-
-    // destructing the updateData object
-    let {imageName,password,...otherUpdateData}=updateData;
-
-    //checking the imageName is present or comming as null or undefined
-    // if(!imageName && imageName===null || imageName===undefined){
-    //     imageName=getUserDetails.imageName;
-    // }else{
-    //     await deletefileFromMinio(getUserDetails.folderName,getUserDetails.imageName);
-    //     imageName;
-    // }
-
-    return await UserRepository.updateUser(userId, {...otherUpdateData,password:hashedPassword,imageName});
-}
-
-static async deleteUser(userId) {
-    return await UserRepository.deleteUser(userId);
-}
-
-static async toggleActive(userId){
-    const toggleActiveDetails=await UserRepository.toggleActive(userId);
-    return toggleActiveDetails || null;
-}
-
-static async toggleDelete(userId){
-  const toggleDeleteDetails=await UserRepository.toggleDelete(userId);
-  return toggleDeleteDetails || null;
-}
+  static async loginUser(email, password) {
+    const user = await UserRepository.getUserByEmail(email);
+    console.log(user);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    const hashedPassword = authHashPassword.hashPassword(password, user.salt);
+    if (hashedPassword !== user.password) {
+      throw new Error("Password is incorrect");
+    }
+    const authToken = jwt.sign({ email: user.email, userId: user.id }, JWT_SECRET_KEY, {
+      expiresIn: "30d"
+    });
+    return { authToken, ...user };
+  }
 
 }
 
