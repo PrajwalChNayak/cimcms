@@ -1,6 +1,6 @@
 import UserController from "../../controllers/user.controller.js";
 import authenticateToken from "../../middleware/auth.middleware.js";
-import fileUpload from "../../middleware/fileuploader.middleware.js";
+//import fileUpload from "../../middleware/fileuploader.middleware.js";
 
 
 

@@ -1,25 +1,25 @@
 import { Client as MinioClient } from 'minio';
 import { ValidationError } from 'sequelize';
 import ApiError from '../utils/apierror.utils.js';
-import { cloudBucketConfig } from '../utils/config.utils.js';
+// import { cloudBucketConfig } from '../utils/config.utils.js';
 
-const bucketClient = new MinioClient(cloudBucketConfig);
+// const bucketClient = new MinioClient(cloudBucketConfig);
 
 const errorHandler = async (err, req, res, next) => {
   if (err instanceof ValidationError) {
-    if (req?.uploadedFiles && Object.keys(req?.uploadedFiles).length !== 0) {
-      await Promise.all(
-        Object.values(req.uploadedFiles).map(async fileDetails => {
-          for (const file of fileDetails) {
-            await bucketClient.removeObject(
-              cloudBucketConfig.bucketName,
-              `${file.folderName}/${file.fileName}`
-            );
-            console.log(`${file.fileName} is deleted.`);
-          }
-        })
-      );
-    }
+    // if (req?.uploadedFiles && Object.keys(req?.uploadedFiles).length !== 0) {
+    //   await Promise.all(
+    //     Object.values(req.uploadedFiles).map(async fileDetails => {
+    //       for (const file of fileDetails) {
+    //         await bucketClient.removeObject(
+    //           cloudBucketConfig.bucketName,
+    //           `${file.folderName}/${file.fileName}`
+    //         );
+    //         console.log(`${file.fileName} is deleted.`);
+    //       }
+    //     })
+    //   );
+    // }
 
     const errorMessages = err.errors.map(error => error.message);
     const responseError = {

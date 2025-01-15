@@ -1,5 +1,5 @@
 import UserRepository from "../repositories/user.repository.js";
-import { deletefileFromMinio } from "../utils/filedelete.utils.js";
+// import { deletefileFromMinio } from "../utils/filedelete.utils.js";
 import Sha512 from "../utils/sha512.utils.js";
 
 class UserService {
@@ -49,12 +49,12 @@ class UserService {
     let {imageName,password,...otherUpdateData}=updateData;
 
     //checking the imageName is present or comming as null or undefined
-    if(!imageName && imageName===null || imageName===undefined){
-        imageName=getUserDetails.imageName;
-    }else{
-        await deletefileFromMinio(getUserDetails.folderName,getUserDetails.imageName);
-        imageName;
-    }
+    // if(!imageName && imageName===null || imageName===undefined){
+    //     imageName=getUserDetails.imageName;
+    // }else{
+    //     await deletefileFromMinio(getUserDetails.folderName,getUserDetails.imageName);
+    //     imageName;
+    // }
 
     return await UserRepository.updateUser(userId, {...otherUpdateData,password:hashedPassword,imageName});
 }
