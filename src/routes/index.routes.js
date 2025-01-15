@@ -1,7 +1,7 @@
 import { Router } from "express";
+import setupDataLogger from './modules/datalogger.routes.js';
 import setupUserRoutes from "./modules/userapis.routes.js";
 import setupWaterFlowRoutes from "./modules/waterFlowData.routes.js";
-
 const apiRoutes = Router();
 
 // This Is Used For Global Error Handler
@@ -12,7 +12,7 @@ const use = fn => (req, res, next) =>
 // add the sub routes to the main routes
 setupUserRoutes(apiRoutes);
 setupWaterFlowRoutes(apiRoutes);
-
+setupDataLogger(apiRoutes);
 
 // apply use fn directly to all routes
 apiRoutes.stack.forEach((apiLayer) => {

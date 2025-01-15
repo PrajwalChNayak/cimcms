@@ -96,3 +96,11 @@ model Alert {
   @@index([severity])
   @@index([flowDataId])
 }
+
+model DataLogger{
+   id            String       @id @default(auto()) @map("_id") @db.ObjectId
+   macAddress    String
+   date          DateTime?
+   fileName       String
+   createdAt     DateTime    @default(now())
+}
