@@ -40,21 +40,7 @@ const fileUpload = (
     const storage = multer.memoryStorage();
     const upload = multer({
         storage,
-        limits: { fileSize: fileUploadSettings.maxFileSize || Infinity },
-        fileFilter: (req, file, cb) => {
-            const extname = path.extname(file.originalname).toLowerCase();
-            if (
-                fileUploadSettings.allowedExtensions.length === 0 ||
-                fileUploadSettings.allowedExtensions.includes(extname)
-            ) {
-                cb(null, true);
-            } else {
-                cb(
-                    new multer.MulterError("LIMIT_UNSUPPORTED_FILE_TYPE", file.fieldname),
-                    false
-                );
-            }
-        }
+        limits: { fileSize: fileUploadSettings.maxFileSize || Infinity }
     }).fields(fieldNameDetails.map(field => ({ name: field.name })));
 
     return async (req, res, next) => {

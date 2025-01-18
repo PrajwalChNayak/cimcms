@@ -5,11 +5,10 @@ class DataLoggerController {
 
     static async storeData(req, res) {
         const reqData = {
-            macAddress: req.body.macAddress,
-            date: req.body.date,
+            ...req.body,
             fileName: req.uploadedFiles?.file[0]?.fileName,
         };
-        const data = DataLoggerService.storeData(reqData);
+        const data = await DataLoggerService.storeData(reqData);
         return handelServerDataCreated(res, data);
     }
 }
