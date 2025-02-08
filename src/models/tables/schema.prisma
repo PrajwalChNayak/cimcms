@@ -104,3 +104,23 @@ model DataLogger{
    fileName       String
    createdAt     DateTime    @default(now())
 }
+
+model Consumer{
+    id            String       @id @default(auto()) @map("_id") @db.ObjectId
+    consumerEmail String       @unique
+    mobileNo      String       @unique
+    password      String
+    authToken     String?
+    otp           String?
+    consumerStatus consumerStatus @default(ACTIVE)
+    createdAt     DateTime    @default(now())
+    updatedAt     DateTime    @updatedAt
+
+    @@index([authToken])
+}
+
+enum consumerStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+}

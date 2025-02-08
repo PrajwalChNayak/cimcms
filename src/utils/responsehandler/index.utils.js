@@ -70,6 +70,16 @@ const handelServerDataCreated = (res, data) => {
     res.status(Constants.HTTPCREATED).json(response);
 };
 
+const handleSuccess = (res, result, message, statusCode = Constants.HTTPOK) => {
+    const response = createResponse(
+      result,
+     Constants.HTTPCREATED,
+     Constants.SUCCESS_STATUS,
+     Constants.DATA_SAVE_MESSAGE
+    );
+    res.status(Constants.HTTPCREATED).json(response);
+  };
+  
 /**
  * Handle successful data retrieval.
  * @param {Object} res - The response object.
@@ -302,6 +312,7 @@ const handelTooMayRequest = async (res) => {
 
 //* Export all functions
 export {
+  handleSuccess,
   createResponse,
   handelBadRequest,
   handelDataDelete,
