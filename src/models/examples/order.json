@@ -1,0 +1,86 @@
+{
+  "items": [
+    {
+      "productId": "prod_123",
+      "name": "Water Purifier Pro",
+      "sku": "WP-100-WHT",
+      "quantity": 2,
+      "unitPrice": 299.99,
+      "subTotal": 599.98,
+      "discount": 50.00,
+      "tax": {
+        "rate": 18,
+        "amount": 98.99
+      },
+      "variant": {
+        "color": "White",
+        "capacity": "10L"
+      }
+    }
+  ],
+  "payment": {
+    "method": "CREDIT_CARD",
+    "status": "PAID",
+    "transactionId": "txn_789",
+    "amount": 648.97,
+    "currency": "USD",
+    "paidAt": "2024-02-20T10:30:00Z",
+    "cardInfo": {
+      "last4": "4242",
+      "brand": "visa",
+      "expiryMonth": 12,
+      "expiryYear": 2025
+    },
+    "billingAddress": {
+      "name": "John Doe",
+      "street": "123 Main St",
+      "city": "San Francisco",
+      "state": "CA",
+      "country": "USA",
+      "zipCode": "94105"
+    }
+  },
+  "shipping": {
+    "method": "EXPRESS",
+    "carrier": "FedEx",
+    "trackingNumber": "FX123456789",
+    "cost": 15.00,
+    "estimatedDelivery": "2024-02-23",
+    "address": {
+      "name": "John Doe",
+      "street": "123 Main St",
+      "city": "San Francisco",
+      "state": "CA",
+      "country": "USA",
+      "zipCode": "94105",
+      "instructions": "Leave at front door"
+    },
+    "status": {
+      "current": "IN_TRANSIT",
+      "lastUpdated": "2024-02-21T09:15:00Z",
+      "history": [
+        {
+          "status": "ORDERED",
+          "timestamp": "2024-02-20T10:30:00Z"
+        },
+        {
+          "status": "PICKED",
+          "timestamp": "2024-02-20T14:20:00Z"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "source": "MOBILE_APP",
+    "customerNotes": "Please handle with care",
+    "giftWrapping": true,
+    "campaign": "SPRING_SALE_2024",
+    "referralCode": "REF123",
+    "tags": ["priority", "first-time-customer"],
+    "internal": {
+      "riskScore": 0.2,
+      "processingPriority": "HIGH",
+      "assignedAgent": "agent_456"
+    }
+  }
+}

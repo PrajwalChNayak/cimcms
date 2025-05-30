@@ -1,0 +1,82 @@
+{
+  "variants": {
+    "models": [
+      {
+        "id": "WP-100",
+        "name": "Basic",
+        "color": "White",
+        "capacity": "10L",
+        "price": 299.99,
+        "sku": "WP100-WHT-10L"
+      },
+      {
+        "id": "WP-200",
+        "name": "Premium",
+        "color": ["White", "Black", "Silver"],
+        "capacity": "20L",
+        "price": 499.99,
+        "sku": "WP200-MLT-20L",
+        "features": ["UV", "RO", "Smart Display"]
+      }
+    ],
+    "options": {
+      "installationType": ["Wall Mount", "Table Top"],
+      "voltage": ["220V", "110V"],
+      "warranty": ["1 Year", "2 Years", "Extended 5 Years"]
+    }
+  },
+  "attributes": {
+    "technical": {
+      "purificationStages": 5,
+      "filterType": "RO+UV+UF+TDS",
+      "powerConsumption": "36W",
+      "dimensions": {
+        "height": 50,
+        "width": 30,
+        "depth": 25,
+        "unit": "cm"
+      }
+    },
+    "certifications": [
+      "ISO 9001:2015",
+      "NSF/ANSI 58",
+      "CE Certified"
+    ],
+    "maintenance": {
+      "filterLifespan": "12 months",
+      "serviceCycle": "6 months",
+      "filterReplacement": {
+        "sedimentFilter": "4 months",
+        "carbonFilter": "6 months",
+        "ROmembrane": "12 months"
+      }
+    }
+  },
+  "metadata": {
+    "seo": {
+      "title": "Advanced Water Purifier with RO Technology",
+      "keywords": ["water purifier", "RO", "UV filtration"],
+      "description": "High-performance water purifier with multi-stage filtration"
+    },
+    "inventory": {
+      "suppliers": ["Supplier A", "Supplier B"],
+      "preferredWarehouse": "WH-001",
+      "shelfLife": "5 years"
+    },
+    "marketing": {
+      "launchDate": "2024-01-15",
+      "targetMarket": ["Residential", "Small Office"],
+      "promotionalPeriod": {
+        "start": "2024-03-01",
+        "end": "2024-04-30",
+        "discount": 10
+      }
+    },
+    "compliance": {
+      "waterEfficiency": "5 Star",
+      "energyRating": "A++",
+      "recyclable": true,
+      "countryOfOrigin": "India"
+    }
+  }
+}
