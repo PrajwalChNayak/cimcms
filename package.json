@@ -5,23 +5,27 @@
   "main": "app.js",
   "type": "module",
   "prisma": {
-    "schema": "./src/models/tables/schema.prisma" 
+    "schema": "./src/models/tables/schema.prisma"
   },
   "scripts": {
-       "start":"nodemon app.js",
-       "generate:prisma": "prisma generate",
-       "migrate:dev:name": "prisma migrate dev --name  $NAME",
-       "migrate:dev": "prisma migrate dev ",
-       "db:pull": "prisma db pull",
-       "db:push": "prisma db push",
-       "migrate:resolve": "prisma migrate resolve --applied",
-       "migrate:create-only": "prisma migrate dev --create-only",
-       "docker:build": "docker build -t aqua-solve-iot .",
-       "docker:run": "docker run -p 3004:3004 aqua-solve-iot",
-       "docker:compose": "docker-compose up",
-       "docker:compose:build": "docker-compose up --build",
-       "docker:compose:down": "docker-compose down",
-       "prisma:generate": "prisma generate"
+    "start": "nodemon app.js",
+    "generate:prisma": "prisma generate",
+    "migrate:dev:name": "prisma migrate dev --name  $NAME",
+    "migrate:dev": "prisma migrate dev ",
+    "db:pull": "prisma db pull",
+    "db:push": "prisma db push",
+    "migrate:resolve": "prisma migrate resolve --applied",
+    "migrate:create-only": "prisma migrate dev --create-only",
+    "docker:build": "docker build -t aqua-solve-iot .",
+    "docker:run": "docker run -p 3004:3004 aqua-solve-iot",
+    "docker:compose": "docker-compose up",
+    "docker:compose:build": "docker-compose up --build",
+    "docker:compose:down": "docker-compose down",
+    "prisma:generate": "prisma generate",
+    "demo:insert": "node demo-data/insert-demo-data.js",
+    "demo:setup": "npm run prisma:generate && npm run demo:insert",
+    "demo:verify": "node demo-data/verify-data.js",
+    "demo:complete": "node demo-data/complete-data.js"
   },
   "repository": {
     "type": "git",
