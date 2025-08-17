@@ -1,5 +1,6 @@
 import DataLoggerService from "../services/datalogger.service.js";
-import { handelServerDataCreated } from "../utils/responsehandler/index.utils.js";
+import { handleDataCreation } from "../utils/responsehandler/index.utils.js";
+
 
 class DataLoggerController {
 
@@ -9,7 +10,7 @@ class DataLoggerController {
             fileName: req.uploadedFiles?.file[0]?.fileName,
         };
         const data = await DataLoggerService.storeData(reqData);
-        return handelServerDataCreated(res, data);
+        return handleDataCreation(res, data);
     }
 }
 

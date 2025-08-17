@@ -1,5 +1,5 @@
-import { Client as MinioClient } from 'minio';
-import { ValidationError } from 'sequelize';
+// import { Client as MinioClient } from 'minio';
+
 import ApiError from '../utils/apierror.utils.js';
 // import { cloudBucketConfig } from '../utils/config.utils.js';
 
@@ -32,24 +32,24 @@ const errorHandler = async (err, req, res, next) => {
   }
 
   if (err instanceof ApiError) {
-    if(req?.uploadedFiles && Object.keys(req?.uploadedFiles).length!==0){
-      await Promise.all(Object.values(req.uploadedFiles).map(async(fileDetails)=>{
-          for(const file of fileDetails){
-            await bucketClient.removeObject(cloudBucketConfig.bucketName,`${file.folderName}/${file.fileName}`);
-            console.log(`${file.fileName} is deleted.`);
-          }
+    if (req?.uploadedFiles && Object.keys(req?.uploadedFiles).length !== 0) {
+      await Promise.all(Object.values(req.uploadedFiles).map(async (fileDetails) => {
+        for (const file of fileDetails) {
+          await bucketClient.removeObject(cloudBucketConfig.bucketName, `${file.folderName}/${file.fileName}`);
+          console.log(`${file.fileName} is deleted.`);
+        }
       }));
     }
 
     const responseError = {
       data: null,
-      statusCode: err.statusCode||400,
-      status: err.status|| false,
-      message:err.message || "Bad Request",
+      statusCode: err.statusCode || 400,
+      status: err.status || false,
+      message: err.message || "Bad Request",
     };
     return res.status(responseError.statusCode).json(responseError);
   }
-  
+
   const responseError = {
     data: null,
     statusCode: err.statusCode || 500,

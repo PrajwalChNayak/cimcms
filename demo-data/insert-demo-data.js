@@ -10,12 +10,13 @@
  * Usage: node demo-data/insert-demo-data.js
  */
 
-import { PrismaClient } from '@prisma/client';
+
 import crypto from 'crypto';
 import readline from 'readline';
+import prisma from '../src/models/index.model.js';
 import { demoData, rolePermissionMappings } from './demo-dataset.js';
 
-const prisma = new PrismaClient();
+
 
 // Utility function to hash passwords (using same method as auth.hash.password.js)
 function hashPassword(password, salt) {
@@ -116,11 +117,26 @@ async function insertRoles() {
 
     const roles = [];
     for (const roleData of demoData.roles) {
-        const role = await prisma.role.create({
-            data: roleData
-        });
-        roles.push(role);
-        colorLog('cyan', `   ✓ Created role: ${role.roleName}`);
+        try {
+            // Check if role already exists
+            const existingRole = await prisma.role.findUnique({
+                where: { roleName: roleData.roleName }
+            });
+
+            if (existingRole) {
+                colorLog('yellow', `   ⚠️  Role ${roleData.roleName} already exists, skipping...`);
+                roles.push(existingRole);
+                continue;
+            }
+
+            const role = await prisma.role.create({
+                data: roleData
+            });
+            roles.push(role);
+            colorLog('cyan', `   ✓ Created role: ${role.roleName}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating role ${roleData.roleName}: ${error.message}`);
+        }
     }
 
     return roles;
@@ -131,11 +147,26 @@ async function insertPermissions() {
 
     const permissions = [];
     for (const permissionData of demoData.permissions) {
-        const permission = await prisma.permission.create({
-            data: permissionData
-        });
-        permissions.push(permission);
-        colorLog('cyan', `   ✓ Created permission: ${permission.permissionName}`);
+        try {
+            // Check if permission already exists
+            const existingPermission = await prisma.permission.findUnique({
+                where: { permissionName: permissionData.permissionName }
+            });
+
+            if (existingPermission) {
+                colorLog('yellow', `   ⚠️  Permission ${permissionData.permissionName} already exists, skipping...`);
+                permissions.push(existingPermission);
+                continue;
+            }
+
+            const permission = await prisma.permission.create({
+                data: permissionData
+            });
+            permissions.push(permission);
+            colorLog('cyan', `   ✓ Created permission: ${permission.permissionName}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating permission ${permissionData.permissionName}: ${error.message}`);
+        }
     }
 
     return permissions;
@@ -188,33 +219,48 @@ async function insertUsers() {
 
     const users = [];
     for (const userData of demoData.users) {
-        const role = await prisma.role.findUnique({
-            where: { roleName: userData.roleName }
-        });
+        try {
+            // Check if user already exists
+            const existingUser = await prisma.user.findUnique({
+                where: { email: userData.email }
+            });
 
-        if (!role) {
-            colorLog('yellow', `   ⚠️  Role ${userData.roleName} not found for user ${userData.username}, skipping...`);
-            continue;
-        }
-
-        const salt = generateSalt();
-        const hashedPassword = hashPassword(userData.password, salt);
-
-        const user = await prisma.user.create({
-            data: {
-                username: userData.username,
-                email: userData.email,
-                password: hashedPassword,
-                salt: salt,
-                firstName: userData.firstName,
-                lastName: userData.lastName,
-                isActive: userData.isActive,
-                roleId: role.id
+            if (existingUser) {
+                colorLog('yellow', `   ⚠️  User ${userData.email} already exists, skipping...`);
+                users.push(existingUser);
+                continue;
             }
-        });
 
-        users.push(user);
-        colorLog('cyan', `   ✓ Created user: ${user.username} (${user.email})`);
+            const role = await prisma.role.findUnique({
+                where: { roleName: userData.roleName }
+            });
+
+            if (!role) {
+                colorLog('yellow', `   ⚠️  Role ${userData.roleName} not found for user ${userData.username}, skipping...`);
+                continue;
+            }
+
+            const salt = generateSalt();
+            const hashedPassword = hashPassword(userData.password, salt);
+
+            const user = await prisma.user.create({
+                data: {
+                    username: userData.username,
+                    email: userData.email,
+                    password: hashedPassword,
+                    salt: salt,
+                    firstName: userData.firstName,
+                    lastName: userData.lastName,
+                    isActive: userData.isActive,
+                    roleId: role.id
+                }
+            });
+
+            users.push(user);
+            colorLog('cyan', `   ✓ Created user: ${user.username} (${user.email})`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating user ${userData.username}: ${error.message}`);
+        }
     }
 
     return users;
@@ -285,11 +331,26 @@ async function insertBrands() {
 
     const brands = [];
     for (const brandData of demoData.brands) {
-        const brand = await prisma.brand.create({
-            data: brandData
-        });
-        brands.push(brand);
-        colorLog('cyan', `   ✓ Created brand: ${brand.name}`);
+        try {
+            // Check if brand already exists
+            const existingBrand = await prisma.brand.findUnique({
+                where: { name: brandData.name }
+            });
+
+            if (existingBrand) {
+                colorLog('yellow', `   ⚠️  Brand ${brandData.name} already exists, skipping...`);
+                brands.push(existingBrand);
+                continue;
+            }
+
+            const brand = await prisma.brand.create({
+                data: brandData
+            });
+            brands.push(brand);
+            colorLog('cyan', `   ✓ Created brand: ${brand.name}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating brand ${brandData.name}: ${error.message}`);
+        }
     }
 
     return brands;
@@ -300,36 +361,51 @@ async function insertProducts() {
 
     const products = [];
     for (const productData of demoData.products) {
-        const category = await prisma.category.findUnique({
-            where: { name: productData.categoryName }
-        });
+        try {
+            // Check if product already exists
+            const existingProduct = await prisma.product.findFirst({
+                where: { name: productData.name }
+            });
 
-        const brand = await prisma.brand.findUnique({
-            where: { name: productData.brandName }
-        });
-
-        if (!category || !brand) {
-            colorLog('yellow', `   ⚠️  Category or Brand not found for product ${productData.name}, skipping...`);
-            continue;
-        }
-
-        const product = await prisma.product.create({
-            data: {
-                name: productData.name,
-                description: productData.description,
-                price: productData.price,
-                categoryId: category.id,
-                brandId: brand.id,
-                variants: productData.variants,
-                attributes: productData.attributes,
-                metadata: productData.metadata,
-                images: productData.images,
-                isActive: true
+            if (existingProduct) {
+                colorLog('yellow', `   ⚠️  Product ${productData.name} already exists, skipping...`);
+                products.push(existingProduct);
+                continue;
             }
-        });
 
-        products.push(product);
-        colorLog('cyan', `   ✓ Created product: ${product.name}`);
+            const category = await prisma.category.findUnique({
+                where: { name: productData.categoryName }
+            });
+
+            const brand = await prisma.brand.findUnique({
+                where: { name: productData.brandName }
+            });
+
+            if (!category || !brand) {
+                colorLog('yellow', `   ⚠️  Category or Brand not found for product ${productData.name}, skipping...`);
+                continue;
+            }
+
+            const product = await prisma.product.create({
+                data: {
+                    name: productData.name,
+                    description: productData.description,
+                    price: productData.price,
+                    categoryId: category.id,
+                    brandId: brand.id,
+                    variants: productData.variants || {},
+                    attributes: productData.attributes || {},
+                    metadata: productData.metadata || {},
+                    images: productData.images || [],
+                    isActive: true
+                }
+            });
+
+            products.push(product);
+            colorLog('cyan', `   ✓ Created product: ${product.name}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating product ${productData.name}: ${error.message}`);
+        }
     }
 
     return products;
@@ -340,18 +416,33 @@ async function insertWarehouses() {
 
     const warehouses = [];
     for (const warehouseData of demoData.warehouses) {
-        const warehouse = await prisma.warehouse.create({
-            data: {
-                name: warehouseData.name,
-                location: warehouseData.location,
-                zones: warehouseData.zones,
-                metadata: warehouseData.metadata,
-                isActive: true
-            }
-        });
+        try {
+            // Check if warehouse already exists
+            const existingWarehouse = await prisma.warehouse.findFirst({
+                where: { name: warehouseData.name }
+            });
 
-        warehouses.push(warehouse);
-        colorLog('cyan', `   ✓ Created warehouse: ${warehouse.name}`);
+            if (existingWarehouse) {
+                colorLog('yellow', `   ⚠️  Warehouse ${warehouseData.name} already exists, skipping...`);
+                warehouses.push(existingWarehouse);
+                continue;
+            }
+
+            const warehouse = await prisma.warehouse.create({
+                data: {
+                    name: warehouseData.name,
+                    location: warehouseData.location,
+                    zones: warehouseData.zones,
+                    metadata: warehouseData.metadata,
+                    isActive: true
+                }
+            });
+
+            warehouses.push(warehouse);
+            colorLog('cyan', `   ✓ Created warehouse: ${warehouse.name}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating warehouse ${warehouseData.name}: ${error.message}`);
+        }
     }
 
     return warehouses;
@@ -362,19 +453,34 @@ async function insertSuppliers() {
 
     const suppliers = [];
     for (const supplierData of demoData.suppliers) {
-        const supplier = await prisma.supplier.create({
-            data: {
-                name: supplierData.name,
-                email: supplierData.email,
-                contacts: supplierData.contacts,
-                addresses: supplierData.addresses,
-                metadata: supplierData.metadata,
-                isActive: true
-            }
-        });
+        try {
+            // Check if supplier already exists
+            const existingSupplier = await prisma.supplier.findUnique({
+                where: { email: supplierData.email }
+            });
 
-        suppliers.push(supplier);
-        colorLog('cyan', `   ✓ Created supplier: ${supplier.name}`);
+            if (existingSupplier) {
+                colorLog('yellow', `   ⚠️  Supplier ${supplierData.email} already exists, skipping...`);
+                suppliers.push(existingSupplier);
+                continue;
+            }
+
+            const supplier = await prisma.supplier.create({
+                data: {
+                    name: supplierData.name,
+                    email: supplierData.email,
+                    contacts: supplierData.contacts,
+                    addresses: supplierData.addresses,
+                    metadata: supplierData.metadata,
+                    isActive: true
+                }
+            });
+
+            suppliers.push(supplier);
+            colorLog('cyan', `   ✓ Created supplier: ${supplier.name}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating supplier ${supplierData.name}: ${error.message}`);
+        }
     }
 
     return suppliers;
@@ -385,13 +491,26 @@ async function insertConsumers() {
 
     const consumers = [];
     for (const consumerData of demoData.consumers) {
-        const hashedPassword = hashPassword(consumerData.password, generateSalt());
+        // Check if consumer already exists
+        const existingConsumer = await prisma.consumer.findUnique({
+            where: { consumerEmail: consumerData.consumerEmail }
+        });
+
+        if (existingConsumer) {
+            colorLog('yellow', `   ⚠️  Consumer ${consumerData.consumerEmail} already exists, skipping...`);
+            consumers.push(existingConsumer);
+            continue;
+        }
+
+        const salt = generateSalt();
+        const hashedPassword = hashPassword(consumerData.password, salt);
 
         const consumer = await prisma.consumer.create({
             data: {
                 consumerEmail: consumerData.consumerEmail,
                 mobileNo: consumerData.mobileNo,
                 password: hashedPassword,
+                // Note: Consumer model doesn't have salt field, unlike User model
                 consumerStatus: consumerData.consumerStatus
             }
         });
@@ -408,12 +527,30 @@ async function insertDataLoggers() {
 
     const dataLoggers = [];
     for (const loggerData of demoData.dataLoggers) {
-        const logger = await prisma.dataLogger.create({
-            data: loggerData
-        });
+        try {
+            // Check if data logger already exists
+            const existingLogger = await prisma.dataLogger.findFirst({
+                where: {
+                    macAddress: loggerData.macAddress,
+                    fileName: loggerData.fileName
+                }
+            });
 
-        dataLoggers.push(logger);
-        colorLog('cyan', `   ✓ Created data logger: ${logger.macAddress}`);
+            if (existingLogger) {
+                colorLog('yellow', `   ⚠️  Data logger ${loggerData.macAddress} with file ${loggerData.fileName} already exists, skipping...`);
+                dataLoggers.push(existingLogger);
+                continue;
+            }
+
+            const logger = await prisma.dataLogger.create({
+                data: loggerData
+            });
+
+            dataLoggers.push(logger);
+            colorLog('cyan', `   ✓ Created data logger: ${logger.macAddress}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating data logger ${loggerData.macAddress}: ${error.message}`);
+        }
     }
 
     return dataLoggers;
@@ -424,12 +561,34 @@ async function insertWaterFlowData() {
 
     const waterFlowDataRecords = [];
     for (const flowData of demoData.waterFlowData) {
-        const record = await prisma.waterFlowData.create({
-            data: flowData
-        });
+        try {
+            // Check for duplicate water flow data based on timestamp and macAddress
+            const existingFlowData = await prisma.waterFlowData.findFirst({
+                where: {
+                    macAddress: flowData.macAddress,
+                    timestamp: flowData.timestamp
+                }
+            });
 
-        waterFlowDataRecords.push(record);
-        colorLog('cyan', `   ✓ Created water flow record: ${record.macAddress} at ${record.timestamp}`);
+            if (existingFlowData) {
+                colorLog('yellow', `   ⚠️  Water flow data for ${flowData.macAddress} at ${flowData.timestamp} already exists, skipping...`);
+                waterFlowDataRecords.push(existingFlowData);
+                continue;
+            }
+
+            const record = await prisma.waterFlowData.create({
+                data: {
+                    ...flowData,
+                    // Ensure all optional fields are properly handled
+                    isActive: flowData.isActive ?? true
+                }
+            });
+
+            waterFlowDataRecords.push(record);
+            colorLog('cyan', `   ✓ Created water flow record: ${record.macAddress} at ${record.timestamp}`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating water flow data for ${flowData.macAddress}: ${error.message}`);
+        }
     }
 
     return waterFlowDataRecords;
@@ -444,39 +603,69 @@ async function insertSampleInventory(products, warehouses) {
     }
 
     const inventoryRecords = [];
-
-    // Create inventory for each product in the main warehouse
     const mainWarehouse = warehouses[0];
 
     for (let i = 0; i < products.length; i++) {
-        const product = products[i];
-        const inventory = await prisma.inventory.create({
-            data: {
-                productId: product.id,
-                warehouseId: mainWarehouse.id,
-                quantity: Math.floor(Math.random() * 100) + 50, // Random quantity between 50-150
-                location: {
-                    aisle: `A-${Math.floor(Math.random() * 20) + 1}`,
-                    rack: `R-${Math.floor(Math.random() * 50) + 1}`,
-                    shelf: `S-${Math.floor(Math.random() * 10) + 1}`,
-                    zone: "A"
-                },
-                stockLevels: {
-                    available: Math.floor(Math.random() * 80) + 40,
-                    reserved: Math.floor(Math.random() * 20) + 5,
-                    damaged: Math.floor(Math.random() * 5),
-                    thresholds: {
-                        reorderPoint: 25,
-                        maxStock: 200,
-                        minStock: 20,
-                        safetyStock: 30
+        try {
+            const product = products[i];
+
+            // Check if inventory already exists for this product in this warehouse
+            const existingInventory = await prisma.inventory.findFirst({
+                where: {
+                    productId: product.id,
+                    warehouseId: mainWarehouse.id
+                }
+            });
+
+            if (existingInventory) {
+                colorLog('yellow', `   ⚠️  Inventory for ${product.name} in ${mainWarehouse.name} already exists, skipping...`);
+                inventoryRecords.push(existingInventory);
+                continue;
+            }
+
+            const baseQuantity = Math.floor(Math.random() * 100) + 50; // Random quantity between 50-150
+            const availableStock = Math.floor(baseQuantity * 0.8); // 80% of total stock is available
+            const reservedStock = Math.floor(baseQuantity * 0.15); // 15% is reserved
+            const damagedStock = Math.floor(baseQuantity * 0.05); // 5% is damaged
+
+            const inventory = await prisma.inventory.create({
+                data: {
+                    productId: product.id,
+                    warehouseId: mainWarehouse.id,
+                    quantity: baseQuantity,
+                    location: {
+                        aisle: `A-${Math.floor(Math.random() * 20) + 1}`,
+                        rack: `R-${Math.floor(Math.random() * 50) + 1}`,
+                        shelf: `S-${Math.floor(Math.random() * 10) + 1}`,
+                        zone: "A",
+                        bin: `BIN-${i + 1}`
+                    },
+                    stockLevels: {
+                        available: availableStock,
+                        reserved: reservedStock,
+                        damaged: damagedStock,
+                        total: baseQuantity,
+                        thresholds: {
+                            reorderPoint: 25,
+                            maxStock: 200,
+                            minStock: 20,
+                            safetyStock: 30
+                        },
+                        lastUpdated: new Date().toISOString()
+                    },
+                    customFields: {
+                        lastCountDate: new Date().toISOString(),
+                        countedBy: "System",
+                        notes: "Initial inventory setup"
                     }
                 }
-            }
-        });
+            });
 
-        inventoryRecords.push(inventory);
-        colorLog('cyan', `   ✓ Created inventory for: ${product.name} (Qty: ${inventory.quantity})`);
+            inventoryRecords.push(inventory);
+            colorLog('cyan', `   ✓ Created inventory for: ${product.name} (Qty: ${inventory.quantity}, Available: ${availableStock})`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating inventory for ${products[i].name}: ${error.message}`);
+        }
     }
 
     return inventoryRecords;
@@ -504,33 +693,40 @@ async function insertSampleStockMovements(products) {
     const movementTypes = ['INBOUND', 'OUTBOUND', 'ADJUSTMENT', 'TRANSFER'];
 
     for (let i = 0; i < 5; i++) {
-        const product = products[Math.floor(Math.random() * products.length)];
-        const movement = await prisma.stockMovement.create({
-            data: {
-                type: movementTypes[Math.floor(Math.random() * movementTypes.length)],
-                productId: product.id,
-                quantity: Math.floor(Math.random() * 50) + 1,
-                fromLocation: {
-                    warehouseId: "WH001",
-                    zone: "A",
-                    aisle: "A-12"
-                },
-                toLocation: {
-                    warehouseId: "WH001",
-                    zone: "B",
-                    aisle: "B-05"
-                },
-                metadata: {
-                    reason: "Stock adjustment",
-                    operator: "System"
-                },
-                reference: `SM-${Date.now()}-${i}`,
-                createdBy: adminUser.id
-            }
-        });
+        try {
+            const product = products[Math.floor(Math.random() * products.length)];
+            const movementType = movementTypes[Math.floor(Math.random() * movementTypes.length)];
 
-        stockMovements.push(movement);
-        colorLog('cyan', `   ✓ Created stock movement: ${movement.type} for ${product.name}`);
+            const movement = await prisma.stockMovement.create({
+                data: {
+                    type: movementType,
+                    productId: product.id,
+                    quantity: Math.floor(Math.random() * 50) + 1,
+                    fromLocation: {
+                        warehouseId: "WH001",
+                        zone: "A",
+                        aisle: "A-12"
+                    },
+                    toLocation: {
+                        warehouseId: "WH001",
+                        zone: "B",
+                        aisle: "B-05"
+                    },
+                    metadata: {
+                        reason: "Stock adjustment",
+                        operator: "System",
+                        batchNumber: `BATCH-${Date.now()}-${i}`
+                    },
+                    reference: `SM-${Date.now()}-${i}`,
+                    createdBy: adminUser.id
+                }
+            });
+
+            stockMovements.push(movement);
+            colorLog('cyan', `   ✓ Created stock movement: ${movement.type} for ${product.name} (Qty: ${movement.quantity})`);
+        } catch (error) {
+            colorLog('red', `   ❌ Error creating stock movement ${i}: ${error.message}`);
+        }
     }
 
     return stockMovements;
@@ -569,6 +765,102 @@ async function insertSampleAlerts(waterFlowData) {
     return alerts;
 }
 
+async function insertSampleOrders(products, consumers) {
+    colorLog('blue', '🛒 Inserting sample orders...');
+
+    if (products.length === 0 || consumers.length === 0) {
+        colorLog('yellow', '   ⚠️  No products or consumers found, skipping orders...');
+        return [];
+    }
+
+    const orders = [];
+    const orderStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
+
+    for (let i = 0; i < 5; i++) {
+        const product = products[Math.floor(Math.random() * products.length)];
+        const consumer = consumers[Math.floor(Math.random() * consumers.length)];
+        const quantity = Math.floor(Math.random() * 3) + 1;
+        const totalAmount = product.price * quantity;
+
+        const order = await prisma.order.create({
+            data: {
+                orderNumber: `ORD-${Date.now()}-${i}`,
+                customerId: consumer.id,
+                status: orderStatuses[Math.floor(Math.random() * orderStatuses.length)],
+                productId: product.id,
+                itemsInfo: {
+                    items: [{
+                        productId: product.id,
+                        productName: product.name,
+                        quantity: quantity,
+                        unitPrice: product.price,
+                        totalPrice: totalAmount
+                    }]
+                },
+                payment: {
+                    method: "CREDIT_CARD",
+                    status: "COMPLETED",
+                    transactionId: `TXN-${Date.now()}-${i}`
+                },
+                shipping: {
+                    address: "Sample Address, City, State, PIN",
+                    method: "STANDARD",
+                    trackingNumber: `TRK-${Date.now()}-${i}`
+                },
+                totalAmount: totalAmount
+            }
+        });
+
+        orders.push(order);
+        colorLog('cyan', `   ✓ Created order: ${order.orderNumber} (${order.status})`);
+    }
+
+    return orders;
+}
+
+async function insertSamplePurchases(suppliers) {
+    colorLog('blue', '🏪 Inserting sample purchases...');
+
+    if (suppliers.length === 0) {
+        colorLog('yellow', '   ⚠️  No suppliers found, skipping purchases...');
+        return [];
+    }
+
+    const purchases = [];
+    const purchaseStatuses = ['ORDERED', 'PARTIAL', 'COMPLETED'];
+
+    for (let i = 0; i < 3; i++) {
+        const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+        const totalAmount = Math.floor(Math.random() * 50000) + 10000;
+
+        const purchase = await prisma.purchase.create({
+            data: {
+                supplierId: supplier.id,
+                status: purchaseStatuses[Math.floor(Math.random() * purchaseStatuses.length)],
+                items: {
+                    purchaseItems: [{
+                        itemName: "Water Filter Components",
+                        quantity: Math.floor(Math.random() * 100) + 50,
+                        unitPrice: 150.00,
+                        totalPrice: totalAmount
+                    }]
+                },
+                metadata: {
+                    purchaseOrderNumber: `PO-${Date.now()}-${i}`,
+                    deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+                    notes: "Bulk order for Q1 inventory"
+                },
+                totalAmount: totalAmount
+            }
+        });
+
+        purchases.push(purchase);
+        colorLog('cyan', `   ✓ Created purchase: PO-${Date.now()}-${i} (${purchase.status})`);
+    }
+
+    return purchases;
+}
+
 async function displaySummary() {
     colorLog('green', '\n📊 Data Insertion Summary:');
     colorLog('green', '========================');
@@ -588,11 +880,15 @@ async function displaySummary() {
         waterFlowData: await prisma.waterFlowData.count(),
         inventory: await prisma.inventory.count(),
         stockMovements: await prisma.stockMovement.count(),
-        alerts: await prisma.alert.count()
+        alerts: await prisma.alert.count(),
+        orders: await prisma.order.count(),
+        purchases: await prisma.purchase.count()
     };
 
     for (const [table, count] of Object.entries(counts)) {
-        colorLog('cyan', `   ${table.padEnd(20)}: ${count} records`);
+        const emoji = count > 0 ? '✅' : '❌';
+        const color = count > 0 ? 'cyan' : 'yellow';
+        colorLog(color, `   ${emoji} ${table.padEnd(20)}: ${count} records`);
     }
 
     colorLog('green', '\n✅ Demo data insertion completed successfully!');
@@ -600,10 +896,15 @@ async function displaySummary() {
     colorLog('white', '   Admin: admin@aquasolve.com / Admin@123');
     colorLog('white', '   Manager: manager1@aquasolve.com / Manager@123');
     colorLog('white', '   Operator: operator1@aquasolve.com / Operator@123');
+    colorLog('white', '   Consumer: customer1@example.com / Customer@123');
 }
 
 async function main() {
     try {
+        // Test database connection first
+        await prisma.$connect();
+        colorLog('green', '✅ Database connection successful');
+
         colorLog('bright', '🌊 AquaSolve IoT - Demo Data Insertion Script');
         colorLog('bright', '=============================================\n');
 
@@ -637,7 +938,9 @@ async function main() {
                 process.exit(1);
         }
 
-        // Insert data in correct order
+        // Insert data in correct order with progress tracking
+        colorLog('blue', '\n📊 Starting data insertion process...\n');
+
         const roles = await insertRoles();
         const permissions = await insertPermissions();
         await insertRolePermissions();
@@ -653,12 +956,26 @@ async function main() {
         const inventory = await insertSampleInventory(products, warehouses);
         const stockMovements = await insertSampleStockMovements(products);
         const alerts = await insertSampleAlerts(waterFlowData);
+        const orders = await insertSampleOrders(products, consumers);
+        const purchases = await insertSamplePurchases(suppliers);
 
         await displaySummary();
 
     } catch (error) {
         colorLog('red', `\n❌ Error during data insertion: ${error.message}`);
-        console.error(error);
+
+        // Log more details in development
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('Full error details:', error);
+        }
+
+        // Attempt graceful cleanup
+        try {
+            await prisma.$disconnect();
+        } catch (disconnectError) {
+            colorLog('red', `❌ Error disconnecting from database: ${disconnectError.message}`);
+        }
+
         process.exit(1);
     } finally {
         await prisma.$disconnect();

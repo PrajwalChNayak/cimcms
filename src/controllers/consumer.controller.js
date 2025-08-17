@@ -1,10 +1,10 @@
 import ConsumerService from "../services/consumer.service.js";
-import { handelServerDataCreated, handleSuccess } from "../utils/responsehandler/index.utils.js";
+import { handleDataCreation, handleSuccess } from "../utils/responsehandler/index.utils.js";
 
 class ConsumerController {
     static async register(req, res) {
         const data = await ConsumerService.register(req.body);
-        return handelServerDataCreated(res, data);
+        return handleDataCreation(res, data);
     }
 
     static async login(req, res) {

@@ -1,9 +1,5 @@
 node_modules
 npm-debug.log
-<<<<<<< HEAD
-
-=======
->>>>>>> 226537b3590261e1ce9d2dd7818e5ed975b655d4
 .git
 .gitignore
 .dockerignore

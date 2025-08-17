@@ -3,18 +3,16 @@ await import('express-async-errors');
 import cors from 'cors';
 import 'dotenv/config';
 import express from 'express';
-import  helmet  from 'helmet';
+import helmet from 'helmet';
 import errorHandler from './src/middleware/errorhandler.middleware.js';
 import apiRoute from './src/routes/index.routes.js';
-import requestInterceptorDataValidation from './src/security/requestinterceptordatavalidation.security.js';
 import sessionCustom from './src/security/session.security.js';
 import logger from './src/utils/logger.utils.js';
-import limiter from './src/security/limiter.security.js';
 
 
 
 const app = express();
- 
+
 
 app.use(express.json());
 app.use(cors());
@@ -23,9 +21,9 @@ app.use(`/${process.env.MAIN_ROUTE}`, apiRoute);
 
 
 
-app.use(requestInterceptorDataValidation);
+//app.use(requestInterceptorDataValidation);
 
-app.use(limiter)
+//app.use(limiter)
 //*Content Security Policy (CSP)
 app.use(helmet.contentSecurityPolicy({
     directives: {
