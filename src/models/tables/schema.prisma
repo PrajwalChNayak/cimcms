@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  email           String    @unique
+  password        String
+  name            String?
+  profileImageUrl String?
+  lastLogin       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  farms           Farm[]
+  devices         Device[]
+}
+
+model Farm {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  address   String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  devices   Device[]
+}
+
+model Device {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  type      String
+  location  String?
+  deviceId  String   @unique
+  userId    String
+  farmId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  farm      Farm?    @relation(fields: [farmId], references: [id])
+}
