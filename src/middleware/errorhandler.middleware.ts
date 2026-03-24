@@ -308,14 +308,18 @@ const errorMapper = (err: unknown, req: Request): AppError => {
 
   if (err instanceof TypeError) {
     return new AppError(
-      "An internal server error occurred.",
+      process.env.NODE_ENV === "production"
+        ? "An internal server error occurred."
+        : (err as TypeError).message,
       500,
       "TYPE_ERROR",
     );
   }
   if (err instanceof ReferenceError) {
     return new AppError(
-      "An internal server error occurred.",
+      process.env.NODE_ENV === "production"
+        ? "An internal server error occurred."
+        : (err as ReferenceError).message,
       500,
       "REFERENCE_ERROR",
     );
@@ -437,7 +441,6 @@ const errorMapper = (err: unknown, req: Request): AppError => {
     process.env.NODE_ENV === "production"
       ? "An unexpected error occurred. Please try again later."
       : extractErrorMessage(err);
-
   return new AppError(message, 500, "INTERNAL_SERVER_ERROR");
 };
 

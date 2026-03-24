@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response, Router } from "express";
 
+import setUpAuthRoutes from "@routes/modules/auth.routes";
 import setUpUserRoutes from "@routes/modules/user.routes";
 
 type AsyncHandler = (
@@ -19,7 +20,7 @@ const use =
 // Register all sub-routes
 
 setUpUserRoutes(apiRoutes);
-
+setUpAuthRoutes(apiRoutes);
 // Apply async error-catching wrapper to every registered route handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (apiRoutes.stack as any[]).forEach((apiLayer: any) => {

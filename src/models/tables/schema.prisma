@@ -12,6 +12,7 @@ model User {
   email           String    @unique
   password        String
   name            String?
+  mobileNumber    String?
   profileImageUrl String?
   lastLogin       DateTime?
   createdAt       DateTime  @default(now())

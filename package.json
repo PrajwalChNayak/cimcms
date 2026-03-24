@@ -1,5 +1,5 @@
 {
-  "name": "com.phyto.node",
+  "name": "com.cultivo.node",
   "version": "1.0.0",
   "description": "Api For YOUR PROJECT  ",
   "main": "dist/app.js",
@@ -30,6 +30,7 @@
   "dependencies": {
     "@prisma/client": "^6.10.1",
     "@scalar/express-api-reference": "^0.8.48",
+    "argon2": "^0.44.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
