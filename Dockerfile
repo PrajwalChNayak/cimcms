@@ -2,8 +2,7 @@
 FROM node:20 AS builder
 WORKDIR /usr/src/app
 
-# Install PM2 globally if you still want process management
-RUN npm install -g pm2
+
 
 COPY package*.json ./
 RUN npm ci
@@ -16,6 +15,9 @@ RUN npm run build
 # Stage 2: runtime image
 FROM node:20 AS runner
 WORKDIR /usr/src/app
+
+# Install PM2 runtime globally (for pm2-runtime)
+RUN npm install -g pm2
 
 # Copy required artifacts only
 COPY --from=builder /usr/src/app/dist ./dist
