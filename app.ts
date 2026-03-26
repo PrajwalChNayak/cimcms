@@ -10,11 +10,13 @@ import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import "express-async-errors";
 import helmet from "helmet";
+import path from "path";
 import yaml from "yamljs";
 
 const app = express();
 
-const openapiSpec = yaml.load("./openapi.yaml") as Record<string, unknown>;
+const openapiFile = path.resolve(process.cwd(), "openapi.yaml");
+const openapiSpec = yaml.load(openapiFile) as Record<string, unknown>;
 
 const apiBaseUrl = `http://localhost:${process.env.PORT}/${process.env.MAIN_ROUTE}`;
 
