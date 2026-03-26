@@ -61,39 +61,10 @@ export const Constants = {
   HTTPNOTFOUND: 404,
   HTTPTOOMANYREQUEST: 429,
 
-  //status values
-  SUCCESS_STATUS: true,
-  FAILED_STATUS: false,
+
 
   USER_IMAGE_FOLDER: "user_images",
   LEAVEREQUEST_DOCUMENT_FOLDER: "leave_request_document",
   COMPOFFREQUEST_DOCUMENT_FOLDER: "comoff_request_document",
 } as const;
 
-export const MONTH_CONSTANTS = {
-  JANUARY: "01",
-  FEBRUARY: "02",
-  MARCH: "03",
-  APRIL: "04",
-  MAY: "05",
-  JUNE: "06",
-  JULY: "07",
-  AUGUST: "08",
-  SEPTEMBER: "09",
-  OCTOBER: "10",
-  NOVEMBER: "11",
-  DECEMBER: "12",
-} as const;
-
-export const JOURNAL = {
-  NUMBER_PREFIX: "JE",
-  SEQUENCE_PAD: 8,
-  DEFAULT_PAD_VALUE: "0",
-} as const;
-
-export const AP_INVOICE = {
-  NUMBER_PREFIX: "AP",
-  SEQUENCE_PAD: 8,
-  DEFAULT_PAD_VALUE: "0",
-  SEQUENCE_MONTH_PAD: 2,
-} as const;

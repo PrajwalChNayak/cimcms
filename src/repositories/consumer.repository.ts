@@ -2,8 +2,8 @@ import BaseRepository, {
   type FieldMappings,
 } from "@repositories/base.repository";
 
-class UserRepository extends BaseRepository {
-  static override _modelName = "User";
+class ConsumerRepository extends BaseRepository {
+  static override _modelName = "Consumer";
 
   static override _fieldMappings: FieldMappings = {
     exact: ["status"],
@@ -20,10 +20,10 @@ class UserRepository extends BaseRepository {
       "role_id",
       "department_id",
       "reporting_manager_id",
-      "crated_by",
+      "created_by",
       "updated_by",
     ],
   };
 }
 
-export default UserRepository;
+export default ConsumerRepository;

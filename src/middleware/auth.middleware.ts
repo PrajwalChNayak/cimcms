@@ -34,7 +34,7 @@ const authenticateToken = (
       return;
     }
 
-    req.user = user as Request["user"];
+    req.subject = user as Request["subject"];
     next();
   });
 };

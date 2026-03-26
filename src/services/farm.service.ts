@@ -1,0 +1,59 @@
+import type { Farm } from "@prisma/client";
+import FarmRepository from "@repositories/farm.repository";
+import { NotFoundError } from "@utils/errors/custom.errors";
+
+type FarmCreateInput = Omit<Farm, "id" | "createdAt" | "updatedAt">;
+
+class FarmService {
+  static async createFarm(data: FarmCreateInput): Promise<Farm> {
+    return FarmRepository.create<Farm>(data as Record<string, unknown>);
+  }
+
+  static async getFarmsByConsumerId(
+    page: number,
+    limit: number,
+    consumerId: string,
+    name?: string,
+    address?: string,
+  ) {
+    const searchParams: Record<string, unknown> = { consumerId };
+    if (name) searchParams.name = name;
+    if (address) searchParams.address = address;
+    return FarmRepository.findAll<Farm>(page, limit, searchParams, {
+      additionalWhere: {},
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  static async getFarmById(id: string): Promise<Farm> {
+    const farm = await FarmRepository.findOne<Farm>(
+      { id },
+      {
+        include: { consumer: true, devices: true },
+      },
+    );
+    if (!farm) throw new NotFoundError("Farm not found");
+    return farm;
+  }
+
+  static async updateFarm(
+    id: string,
+    data: Partial<FarmCreateInput>,
+  ): Promise<Farm> {
+    const existing = await FarmRepository.findOne<Farm>({ id });
+    if (!existing) throw new NotFoundError("Farm not found");
+    // Type workaround because BaseRepository updateById is typed for number
+    return FarmRepository.updateById<Farm>(
+      id as unknown as number,
+      data as Record<string, unknown>,
+    );
+  }
+
+  static async deleteFarm(id: string): Promise<Farm> {
+    const existing = await FarmRepository.findOne<Farm>({ id });
+    if (!existing) throw new NotFoundError("Farm not found");
+    return FarmRepository.deleteById<Farm>(id as unknown as number, false);
+  }
+}
+
+export default FarmService;

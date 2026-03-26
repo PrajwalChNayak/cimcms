@@ -150,7 +150,7 @@ class BaseRepository {
     }: FindAllOptions = {},
   ): Promise<PaginationResult<T>> {
     const { skip, take } = PaginationUtils.getSkipTake(page, limit);
-    const where = this.#buildWhere(
+    const where = this._buildWhere(
       searchParams,
       fieldMappings ?? this._fieldMappings,
       additionalWhere ?? this._defaultWhere,
@@ -176,7 +176,7 @@ class BaseRepository {
     orderBy,
     include,
   }: FindAllWithoutPaginationOptions = {}): Promise<T[]> {
-    const where = this.#buildWhere(
+    const where = this._buildWhere(
       searchParams,
       { exact: Object.keys(searchParams) },
       additionalWhere ?? this._defaultWhere,
@@ -198,7 +198,7 @@ class BaseRepository {
   ): Promise<T> {
     return this.db.update({
       where: { id },
-      data: { ...data, updated_at: new Date() },
+      data: { ...data, updatedAt: new Date() },
     }) as Promise<T>;
   }
 
@@ -270,7 +270,7 @@ class BaseRepository {
    * Time:  O(F + A)  — F mapped fields, A additionalWhere entries
    * Space: O(F + A)  — no intermediate clones or cleanup pass
    */
-  static #buildWhere(
+  protected static _buildWhere(
     params: Record<string, unknown>,
     mappings: FieldMappings,
     additional: Record<string, unknown>,
@@ -286,7 +286,7 @@ class BaseRepository {
         const value = params[field];
         if (value === undefined || value === null || value === "") continue;
 
-        const clause = this.#processField(field, value, type);
+        const clause = this._processField(field, value, type);
         if (type === "text") {
           (or ??= []).push(clause);
         } else {
@@ -305,7 +305,7 @@ class BaseRepository {
     return result;
   }
 
-  static #processField(
+  protected static _processField(
     field: string,
     value: unknown,
     type: string,
@@ -327,7 +327,12 @@ class BaseRepository {
         return { [field]: new Date(value as string) };
 
       case "text":
-        return { [field]: { contains: String(value).toLowerCase() } };
+        return {
+          [field]: {
+            contains: String(value),
+            mode: "insensitive",
+          },
+        };
 
       case "exact":
       default:

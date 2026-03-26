@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Consumer {
   id              String    @id @default(auto()) @map("_id") @db.ObjectId
   email           String    @unique
   password        String
@@ -22,26 +22,26 @@ model User {
 }
 
 model Farm {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  address   String?
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
-  devices   Device[]
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  address    String?
+  consumerId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  consumer   Consumer @relation(fields: [consumerId], references: [id])
+  devices    Device[]
 }
 
 model Device {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  type      String
-  location  String?
-  deviceId  String   @unique
-  userId    String
-  farmId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
-  farm      Farm?    @relation(fields: [farmId], references: [id])
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  type       String
+  location   String?
+  deviceId   String   @unique
+  consumerId String
+  farmId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  consumer   Consumer @relation(fields: [consumerId], references: [id])
+  farm       Farm?    @relation(fields: [farmId], references: [id])
 }
