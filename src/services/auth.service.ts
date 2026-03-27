@@ -61,6 +61,7 @@ class AuthService {
     password: string;
   }): Promise<{
     authToken: string;
+    id: string;
   }> {
     const user = await ConsumerRepository.findOne({
       email,
@@ -80,7 +81,7 @@ class AuthService {
       userId: user.id,
     });
 
-    return { authToken };
+    return { authToken, id: user.id };
   }
 
   static async refreshToken(subject: {
