@@ -29,7 +29,7 @@ class FarmService {
     const farm = await FarmRepository.findOne<Farm>(
       { id },
       {
-        include: { consumer: true, devices: true },
+        include: { devices: true },
       },
     );
     if (!farm) throw new NotFoundError("Farm not found");
