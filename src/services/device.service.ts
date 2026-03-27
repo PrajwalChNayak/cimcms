@@ -19,13 +19,13 @@ class DeviceService {
     consumerId: string,
     farmId?: string,
   ) {
-    const searchParams: Record<string, unknown> = {};
+    const searchParams: Record<string, unknown> = {consumerId};
     if (name) searchParams.name = name;
     if (type) searchParams.type = type;
     if (location) searchParams.location = location;
     if (deviceId) searchParams.deviceId = deviceId;
-    if (consumerId) searchParams.consumerId = consumerId;
     if (farmId) searchParams.farmId = farmId;
+    console.log("Search Params:", searchParams); // Debug log to check search parameters
     return DeviceRepository.findAll<Device>(page, limit, searchParams, {
       additionalWhere: {},
       orderBy: { createdAt: "desc" },
