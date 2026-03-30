@@ -1,95 +1,75 @@
-# Aqua Solve IoT Dashboard
+# React + TypeScript + Vite
 
-## 📝 Description
-A comprehensive IoT dashboard for monitoring and managing water quality parameters in real-time. This project:
-- Provides real-time monitoring of water quality sensors
-- Visualizes data through interactive charts and graphs
-- Enables remote control of water treatment systems
-- Helps maintain water quality standards through automated alerts
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## ⚡️ Key Features
-- Real-time sensor data monitoring and visualization
-- Automated alert system for parameter threshold violations
-- Interactive dashboard with customizable widgets
-- Historical data analysis and reporting
-- User management with role-based access control
+Currently, two official plugins are available:
 
-## 🚀 Installation
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-```bash
-# Clone the repository
-git clone https://github.com/cpballresearch/aqua_solve_iot_dashboard.git
-cd aqua_solve_iot_dashboard
+## React Compiler
 
-# Install dependencies
-npm install
+The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
 
-# Set up environment variables
-cp .env.example .env
+Note: This will impact Vite dev & build performances.
 
-# Start the development server
-npm run dev
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## ⚙️ Configuration
-Configure the application through environment variables:
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```env
-PORT=3000
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-DB_CONNECTION=mongodb://localhost:27017/aquasolve
-API_KEY=your_api_key
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-## 📊 API Reference
-
-### Sensor Data Endpoints
-
-#### `GET /api/sensors`
-- **Purpose**: Retrieve all sensor readings
-- **Parameters**: 
-  - `timeRange`: Optional time range filter
-  - `sensorId`: Optional specific sensor filter
-- **Returns**: Array of sensor readings with timestamps
-
-#### `POST /api/alerts`
-- **Purpose**: Configure alert thresholds
-- **Parameters**:
-  - `parameter`: Water quality parameter
-  - `threshold`: Alert threshold value
-- **Returns**: Alert configuration object
-
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## 👏 Acknowledgments
-- MQTT.js for real-time communication
-- Chart.js for data visualization
-- MongoDB for data storage
-- Express.js for the backend framework
-
-## 📞 Contact
-- Development Team - support@aquasolve.com
-- Project Link: https://github.com/cpballresearch/aqua_solve_iot_dashboard
-
-## 🗺️ Roadmap
-- [x] Basic sensor data visualization
-- [x] Real-time monitoring system
-- [ ] Mobile application integration
-- [ ] Advanced analytics dashboard
-- [ ] Machine learning predictions
-
-## ❗️ Known Issues
-- Dashboard may experience slight delay with high-frequency sensor updates
-- Historical data export limited to 30 days
-- Mobile view optimization in progress
-
-## 📈 Version History
-- 1.0.0
-  - Initial production release
-  - Basic monitoring features
-  - Alert system
-- 0.9.0
-  - Beta release
-  - Core functionality testing
-  - User feedback implementation
