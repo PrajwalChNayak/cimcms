@@ -1,3 +1,4 @@
+import { Header, Sidebar } from "@shared/layouts/dashboard";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 
@@ -11,11 +12,11 @@ export const DashboardLayout = () => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     const toggleSidebar = () => {
-        setIsSidebarCollapsed(!isSidebarCollapsed);
+        setIsSidebarCollapsed((v) => !v);
     };
 
     const toggleMobileSidebar = () => {
-        setIsMobileSidebarOpen(!isMobileSidebarOpen);
+        setIsMobileSidebarOpen((v) => !v);
     };
 
     const closeMobileSidebar = () => {
@@ -23,17 +24,17 @@ export const DashboardLayout = () => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--color-background)" }}>
             {/* ── Mobile Sidebar Overlay ── */}
             <div
                 className={`fixed inset-0 z-40 md:hidden transition-opacity duration-300 ${isMobileSidebarOpen
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none"
                     }`}
             >
                 {/* Backdrop */}
                 <div
-                    className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                     onClick={closeMobileSidebar}
                 />
 
@@ -46,51 +47,40 @@ export const DashboardLayout = () => {
                     <button
                         type="button"
                         onClick={closeMobileSidebar}
-                        className="absolute top-4 -right-10 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                        className="absolute top-4 -right-10 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors cursor-pointer"
                     >
-                        <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M6 18L18 6M6 6l12 12"
-                            />
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
 
-                    {/* <Sidebar
+                    <Sidebar
                         isCollapsed={false}
                         onToggle={closeMobileSidebar}
-                        isMobile={true}
-                    /> */}
+                        onNavigate={closeMobileSidebar}
+                    />
                 </div>
             </div>
 
             {/* ── Desktop Sidebar ── */}
             <div className="hidden md:flex shrink-0">
-                {/* <Sidebar
+                <Sidebar
                     isCollapsed={isSidebarCollapsed}
                     onToggle={toggleSidebar}
-                    isMobile={false}
-                /> */}
+                />
             </div>
 
             {/* Main content area */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}
-                {/* <Header
+                <Header
                     onSidebarToggle={toggleSidebar}
                     onMobileSidebarToggle={toggleMobileSidebar}
-                /> */}
+                />
 
                 {/* Main content */}
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6">
-                    <div>
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6" style={{ backgroundColor: "var(--color-background)" }}>
+                    <div className="mx-auto max-w-7xl">
                         <Outlet />
                     </div>
                 </main>

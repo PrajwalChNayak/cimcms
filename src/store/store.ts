@@ -1,4 +1,5 @@
 import { baseApi } from "@api/baseApi.ts";
+import type { Middleware, Reducer } from "@reduxjs/toolkit";
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import {
@@ -8,6 +9,7 @@ import {
 } from "@store/middleware/index.ts";
 import type { RootState } from "@store/rootReducer.ts";
 import rootReducer from "@store/rootReducer.ts";
+import type { PersistedState } from "redux-persist";
 import {
   FLUSH,
   PAUSE,
@@ -17,6 +19,7 @@ import {
   PURGE,
   REGISTER,
   REHYDRATE,
+  type Transform,
 } from "redux-persist";
 import storageLib from "redux-persist/lib/storage";
 
@@ -25,6 +28,35 @@ const storage =
   (storageLib as unknown as { default: typeof storageLib }).default ??
   storageLib;
 
+const authTransform: Transform<any, any> = {
+  in: (inboundState: unknown, key: string | number | symbol) => {
+    if (key === "auth") {
+      const {
+        error: _error,
+        isLoading: _isLoading,
+        ...persistedState
+      } = inboundState as {
+        error?: unknown;
+        isLoading?: unknown;
+        [k: string]: unknown;
+      };
+      return persistedState;
+    }
+    return inboundState;
+  },
+  out: (outboundState: unknown, key: string | number | symbol) => {
+    if (key === "auth") {
+      return {
+        ...(outboundState as object),
+        isLoading: false,
+        error: null,
+        isInitialized: false,
+      };
+    }
+    return outboundState;
+  },
+};
+
 // Redux Persist configuration
 const persistConfig = {
   key: "CultivoIot-root",
@@ -32,41 +64,15 @@ const persistConfig = {
   version: 1,
   whitelist: ["auth"],
   blacklist: [baseApi.reducerPath],
-  transforms: [
-    {
-      in: (inboundState: unknown, key: string) => {
-        if (key === "auth") {
-          const {
-            error: _error,
-            isLoading: _isLoading,
-            ...persistedState
-          } = inboundState as {
-            error?: unknown;
-            isLoading?: unknown;
-            [k: string]: unknown;
-          };
-          return persistedState;
-        }
-        return inboundState;
-      },
-      out: (outboundState: unknown, key: string) => {
-        if (key === "auth") {
-          return {
-            ...(outboundState as object),
-            isLoading: false,
-            error: null,
-            isInitialized: false,
-          };
-        }
-        return outboundState;
-      },
-    },
-  ],
-  migrate: (state: unknown) => Promise.resolve(state),
+  transforms: [authTransform],
+  migrate: (state: PersistedState) => Promise.resolve(state),
 };
 
 // Create persisted reducer
-const persistedReducer = persistReducer(persistConfig, rootReducer);
+const persistedReducer = persistReducer<Partial<RootState>>(
+  persistConfig,
+  rootReducer as Reducer<Partial<RootState>>,
+);
 
 // Configure the Redux store with persistence
 export const store = configureStore({
@@ -88,11 +94,11 @@ export const store = configureStore({
         ignoredPaths: ["items.dates"],
       },
     }).concat([
-      baseApi.middleware,
-      errorMiddleware,
-      authMiddleware,
+      baseApi.middleware as Middleware,
+      errorMiddleware as Middleware,
+      authMiddleware as Middleware,
       ...(process.env.NODE_ENV === "development"
-        ? [performanceMiddleware]
+        ? [performanceMiddleware as Middleware]
         : []),
     ]),
 

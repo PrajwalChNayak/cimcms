@@ -29,14 +29,13 @@ export const publicRoutes: RouteConfig[] = [
 
 // Protected routes (require authentication)
 export const protectedRoutes: RouteConfig[] = [
-  // Dashboard
-  // {
-  //   path: "/dashboard",
-  //   element: "Dashboard",
-  //   layout: "DashboardLayout",
-  //   permissions: [],
-  //   roles: [],
-  // },
+  {
+    path: "/dashboard",
+    element: "Dashboard",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
 ];
 
 // Error routes

@@ -2,5 +2,6 @@ export type {
   AuthState,
   LoginRequest,
   LoginResponse,
-  User,
-} from "@types/auth.types.ts";
+  User
+} from "@app_types/auth.types.ts";
+

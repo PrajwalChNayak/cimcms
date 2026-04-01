@@ -16,9 +16,7 @@ import { PublicLayout } from "@shared/layouts/PublicLayout.tsx";
 import { LoadingSpinner } from "@shared/components/loading/index.ts";
 
 // Route configuration
-import ForbiddenScreen from '@/view/errors/ForbiddenScreen';
-import NotFoundScreen from "@/view/errors/NotFoundScreen";
-import ServerErrorScreen from "@/view/errors/ServerErrorScreen";
+
 import type { RouteConfig } from "@shared/router/routes.ts";
 import {
     errorRoutes,
@@ -30,20 +28,25 @@ import ErrorBoundary from "@shared/utils/ErrorBoundary";
 import { selectIsAuthenticated } from "@store/slices/authSlice.ts";
 
 // Lazy load only dashboard and new request related components
-const Login = lazy(() => import("@view/auth/LoginPage.tsx"));
 
+const Dashboard = lazy(() => import("@view/home/dashboard/Dashboard.tsx"));
+const Login = lazy(() => import("@view/auth/LoginPage.tsx"));
+const ForbiddenScreen = lazy(() => import("@view/errors/ForbiddenScreen.tsx"));
+const NotFoundScreen = lazy(() => import("@view/errors/NotFoundScreen.tsx"));
+const ServerErrorScreen = lazy(() => import("@view/errors/ServerErrorScreen.tsx"));
 // Component mapping
-const componentMap: Record<string, React.LazyExoticComponent<() => JSX.Element>> = {
+const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
     Login,
+    Dashboard,
     ForbiddenScreen,
     NotFoundScreen,
-    ServerErrorScreen
+    ServerErrorScreen,
 };
 
 /**
  * Get component by name
  */
-const getComponent = (componentName: string): (() => JSX.Element) => {
+const getComponent = (componentName: string): (React.FC) => {
     const Component = componentMap[componentName];
     if (!Component) {
         console.error(`Component "${componentName}" not found in componentMap`);

@@ -1,10 +1,9 @@
-import { LoadingSpinner } from "@shared/components/loading";
 import { SplashScreen } from "@shared/components/splash";
+import { AppRouter } from "@shared/router";
 import { persistor, store } from "@store/index";
 import React, { useState } from "react";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
-import { AppRouter } from "@shared/router";
 
 
 
@@ -23,7 +22,7 @@ const App: React.FC = () => {
   return (
     <Provider store={store}>
       <PersistGate
-        loading={<LoadingSpinner fullscreen text="Loading application..." />}
+        // loading={<LoadingSpinner fullscreen text="Loading application..." />}
         persistor={persistor}
       >
         <div className="App">

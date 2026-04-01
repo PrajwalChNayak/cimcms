@@ -67,8 +67,7 @@ const uiSlice = createSlice({
     showNotification: (
       state,
       action: PayloadAction<
-        Omit<Notification, "id" | "timestamp"> &
-          Partial<Pick<Notification, "id" | "timestamp">>
+        Omit<Notification, "id" | "timestamp"> & { type: string }
       >,
     ) => {
       const notification: Notification = {
