@@ -33,15 +33,25 @@ model Farm {
 }
 
 model Device {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  type       String
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String?
+  type       String?
   location   String?
-  deviceId   String   @unique
-  consumerId String
+  deviceId   String    @unique
+  deviceType String
+  consumerId String?
   farmId     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  consumer   Consumer @relation(fields: [consumerId], references: [id])
-  farm       Farm?    @relation(fields: [farmId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  consumer   Consumer? @relation(fields: [consumerId], references: [id])
+  farm       Farm?     @relation(fields: [farmId], references: [id])
+}
+
+model MasterTypeConstant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String
+  value     String
+  info      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

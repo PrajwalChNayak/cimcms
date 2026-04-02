@@ -3,6 +3,7 @@ import { NextFunction, Request, Response, Router } from "express";
 import setUpAuthRoutes from "@routes/modules/auth.routes";
 import setUpDeviceRoutes from "@routes/modules/device.routes";
 import setUpFarmRoutes from "@routes/modules/farm.routes";
+import setUpMasterRouters from "@routes/modules/master.routers";
 import setUpUserRoutes from "@routes/modules/user.routes";
 
 type AsyncHandler = (
@@ -25,6 +26,7 @@ setUpUserRoutes(apiRoutes);
 setUpAuthRoutes(apiRoutes);
 setUpFarmRoutes(apiRoutes);
 setUpDeviceRoutes(apiRoutes);
+setUpMasterRouters(apiRoutes);
 // Apply async error-catching wrapper to every registered route handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (apiRoutes.stack as any[]).forEach((apiLayer: any) => {

@@ -5,7 +5,7 @@ import { NotFoundError } from "@utils/errors/custom.errors";
 type DeviceCreateInput = Omit<Device, "id" | "createdAt" | "updatedAt">;
 
 class DeviceService {
-  static async createDevice(data: DeviceCreateInput): Promise<Device> {
+  static async createDeviceFarmer(data: DeviceCreateInput): Promise<Device> {
     return DeviceRepository.create<Device>(data as Record<string, unknown>);
   }
 

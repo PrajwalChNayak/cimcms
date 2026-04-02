@@ -7,8 +7,8 @@ import {
 import { Request, Response } from "express";
 
 class DeviceController {
-  static async createDevice(req: Request, res: Response): Promise<void> {
-    const result = await DeviceService.createDevice(req.body);
+  static async createDeviceFarmer(req: Request, res: Response): Promise<void> {
+    const result = await DeviceService.createDeviceFarmer(req.body);
     handleDataCreation(res, result, "Device created successfully");
   }
 
