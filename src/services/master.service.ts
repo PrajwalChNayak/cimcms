@@ -1,6 +1,6 @@
-import MasterTypeConstantRepository from "@/repositories/mastertypeconstant.repository";
-import PaginationUtils from "@/utils/pagination.utils";
-import type { MasterTypeConstant } from "@prisma/client";
+import MasterTypeConstantRepository from '@/repositories/mastertypeconstant.repository';
+import PaginationUtils from '@/utils/pagination.utils';
+import type { MasterTypeConstant } from '@prisma/client';
 
 class MasterService {
   static async createMasterTypeConstant(data: {
@@ -31,15 +31,10 @@ class MasterService {
     if (type) searchParams.type = type;
     if (value) searchParams.value = value;
 
-    return MasterTypeConstantRepository.findAll<MasterTypeConstant>(
-      page,
-      limit,
-      searchParams,
-      {
-        additionalWhere: {},
-        orderBy: { createdAt: "desc" },
-      },
-    );
+    return MasterTypeConstantRepository.findAll<MasterTypeConstant>(page, limit, searchParams, {
+      additionalWhere: {},
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }
 

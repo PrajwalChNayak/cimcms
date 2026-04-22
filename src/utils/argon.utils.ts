@@ -1,5 +1,5 @@
-import argon2 from "argon2";
-import dotenv from "dotenv";
+import argon2 from 'argon2';
+import dotenv from 'dotenv';
 dotenv.config();
 
 /**
@@ -15,10 +15,10 @@ dotenv.config();
  */
 const ARGON2_OPTIONS: argon2.Options & { raw: false } = {
   type: argon2.argon2id,
-  memoryCost:  parseInt(process.env.ARGON2_MEMORY_COST  ?? "65536", 10),
-  timeCost:    parseInt(process.env.ARGON2_TIME_COST    ?? "3",     10),
-  parallelism: parseInt(process.env.ARGON2_PARALLELISM  ?? "4",     10),
-  hashLength:  parseInt(process.env.ARGON2_HASH_LENGTH  ?? "32",    10),
+  memoryCost: parseInt(process.env.ARGON2_MEMORY_COST ?? '65536', 10),
+  timeCost: parseInt(process.env.ARGON2_TIME_COST ?? '3', 10),
+  parallelism: parseInt(process.env.ARGON2_PARALLELISM ?? '4', 10),
+  hashLength: parseInt(process.env.ARGON2_HASH_LENGTH ?? '32', 10),
   raw: false,
 };
 
@@ -42,10 +42,7 @@ class Argon {
    * @param storedHash - Argon2 encoded hash from hashPassword()
    * @returns true if the password matches
    */
-  static async verifyPassword(
-    password: string,
-    storedHash: string,
-  ): Promise<boolean> {
+  static async verifyPassword(password: string, storedHash: string): Promise<boolean> {
     return argon2.verify(storedHash, password);
   }
 

@@ -1,19 +1,16 @@
-import ConsumerRepository from "@/repositories/consumer.repository";
-import Argon from "@/utils/argon.utils";
-import jwt from "jsonwebtoken";
+import ConsumerRepository from '@/repositories/consumer.repository';
+import Argon from '@/utils/argon.utils';
+import jwt from 'jsonwebtoken';
 
 class AuthService {
-  static #_generateAccessToken(subject: {
-    email: string;
-    userId: number;
-  }): string {
+  static #_generateAccessToken(subject: { email: string; userId: number }): string {
     return jwt.sign(
       {
         email: subject.email,
         userId: subject.userId,
       },
       process.env.JWT_SECRET_KEY as string,
-      { expiresIn: "30d" },
+      { expiresIn: '30d' },
     );
   }
 
@@ -53,13 +50,7 @@ class AuthService {
     };
   }
 
-  static async login({
-    email,
-    password,
-  }: {
-    email: string;
-    password: string;
-  }): Promise<{
+  static async login({ email, password }: { email: string; password: string }): Promise<{
     authToken: string;
     id: string;
   }> {
@@ -68,12 +59,12 @@ class AuthService {
     });
 
     if (!user) {
-      throw new Error("User not found");
+      throw new Error('User not found');
     }
 
     const isPasswordValid = await Argon.verifyPassword(password, user.password);
     if (!isPasswordValid) {
-      throw new Error("Invalid password");
+      throw new Error('Invalid password');
     }
     await ConsumerRepository.updateById(user.id, { lastLogin: new Date() });
     const authToken = AuthService.#_generateAccessToken({
@@ -84,10 +75,7 @@ class AuthService {
     return { authToken, id: user.id };
   }
 
-  static async refreshToken(subject: {
-    email: string;
-    userId: number;
-  }): Promise<{
+  static async refreshToken(subject: { email: string; userId: number }): Promise<{
     authToken: string;
   }> {
     const authToken = AuthService.#_generateAccessToken(subject);

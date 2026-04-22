@@ -1,12 +1,26 @@
-import type { Device } from "@prisma/client";
-import DeviceRepository from "@repositories/device.repository";
-import { NotFoundError } from "@utils/errors/custom.errors";
+import type { Device } from '@prisma/client';
+import DeviceRepository from '@repositories/device.repository';
+import { NotFoundError } from '@utils/errors/custom.errors';
 
-type DeviceCreateInput = Omit<Device, "id" | "createdAt" | "updatedAt">;
+type DeviceCreateInput = Omit<Device, 'id' | 'createdAt' | 'updatedAt'>;
 
 class DeviceService {
-  static async createDeviceFarmer(data: DeviceCreateInput): Promise<Device> {
+  static async createDevice(data: DeviceCreateInput): Promise<Device> {
     return DeviceRepository.create<Device>(data as Record<string, unknown>);
+  }
+
+  static async createDeviceFarmer(
+    id: string,
+    data: Omit<DeviceCreateInput, 'consumerId'>,
+  ): Promise<Device> {
+    const existing = await DeviceRepository.existsById<Device>(id as string);
+
+    if (!existing) throw new NotFoundError('Device not found');
+
+    return DeviceRepository.updateById<Device>(
+      id as unknown as number,
+      data as Record<string, unknown>,
+    );
   }
 
   static async getDevicesByConsumerId(
@@ -19,16 +33,16 @@ class DeviceService {
     consumerId: string,
     farmId?: string,
   ) {
-    const searchParams: Record<string, unknown> = {consumerId};
+    const searchParams: Record<string, unknown> = { consumerId };
     if (name) searchParams.name = name;
     if (type) searchParams.type = type;
     if (location) searchParams.location = location;
     if (deviceId) searchParams.deviceId = deviceId;
     if (farmId) searchParams.farmId = farmId;
-    console.log("Search Params:", searchParams); // Debug log to check search parameters
+    console.log('Search Params:', searchParams); // Debug log to check search parameters
     return DeviceRepository.findAll<Device>(page, limit, searchParams, {
       additionalWhere: {},
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -39,16 +53,13 @@ class DeviceService {
         include: { consumer: true, farm: true },
       },
     );
-    if (!device) throw new NotFoundError("Device not found");
+    if (!device) throw new NotFoundError('Device not found');
     return device;
   }
 
-  static async updateDevice(
-    id: string,
-    data: Partial<DeviceCreateInput>,
-  ): Promise<Device> {
+  static async updateDevice(id: string, data: Partial<DeviceCreateInput>): Promise<Device> {
     const existing = await DeviceRepository.findOne<Device>({ id });
-    if (!existing) throw new NotFoundError("Device not found");
+    if (!existing) throw new NotFoundError('Device not found');
     return DeviceRepository.updateById<Device>(
       id as unknown as number,
       data as Record<string, unknown>,
@@ -57,7 +68,7 @@ class DeviceService {
 
   static async deleteDevice(id: string): Promise<Device> {
     const existing = await DeviceRepository.findOne<Device>({ id });
-    if (!existing) throw new NotFoundError("Device not found");
+    if (!existing) throw new NotFoundError('Device not found');
     return DeviceRepository.deleteById<Device>(id as unknown as number, false);
   }
 }

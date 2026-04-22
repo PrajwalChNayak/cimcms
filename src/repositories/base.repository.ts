@@ -1,8 +1,6 @@
-import prisma from "@models/prisma.client";
-import type { PrismaClient } from "@prisma/client";
-import PaginationUtils, {
-  type PaginationResult,
-} from "@utils/pagination.utils";
+import prisma from '@models/prisma.client';
+import type { PrismaClient } from '@prisma/client';
+import PaginationUtils, { type PaginationResult } from '@utils/pagination.utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,14 +71,14 @@ function getDelegate(model: string): AnyDelegate {
  * Optionally override _defaultInclude for default eager-loading.
  */
 class BaseRepository {
-  static _modelName: string = "";
+  static _modelName: string = '';
   static _fieldMappings: FieldMappings = {};
   static _defaultInclude: Record<string, unknown> | null = null;
 
   // Allocated once — shared across all findAll / findAllWithoutPagination calls
   // that don't supply their own additionalWhere
   static readonly _defaultWhere: Record<string, unknown> = {
-    status: { not: "DELETED" },
+    status: { not: 'DELETED' },
   };
 
   /* ------------------------------------------------------------------ */
@@ -97,9 +95,7 @@ class BaseRepository {
     return this.db.create({ data }) as Promise<T>;
   }
 
-  static async createMany(
-    data: Record<string, unknown>[],
-  ): Promise<{ count: number }> {
+  static async createMany(data: Record<string, unknown>[]): Promise<{ count: number }> {
     return this.db.createMany({ data }) as Promise<{ count: number }>;
   }
 
@@ -115,6 +111,18 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  READ                                                               */
   /* ------------------------------------------------------------------ */
+  static async existsById<T>(id: string): Promise<boolean> {
+    const count = await this.db.count({
+      where: { id },
+    });
+    return count > 0;
+  }
+
+  static async exists(where: Record<string, unknown>): Promise<boolean> {
+    const count = (await this.db.count({ where })) as number;
+    return count > 0;
+  }
+
   static async findById<T>(
     id: number,
     { include, additionalWhere = {} }: FindByIdOptions = {},
@@ -146,7 +154,7 @@ class BaseRepository {
       fieldMappings,
       additionalWhere,
       include,
-      orderBy = { created_at: "desc" },
+      orderBy = { created_at: 'desc' },
     }: FindAllOptions = {},
   ): Promise<PaginationResult<T>> {
     const { skip, take } = PaginationUtils.getSkipTake(page, limit);
@@ -192,10 +200,7 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  UPDATE                                                             */
   /* ------------------------------------------------------------------ */
-  static async updateById<T>(
-    id: number,
-    data: Record<string, unknown>,
-  ): Promise<T> {
+  static async updateById<T>(id: number, data: Record<string, unknown>): Promise<T> {
     return this.db.update({
       where: { id },
       data: { ...data, updatedAt: new Date() },
@@ -206,32 +211,24 @@ class BaseRepository {
   /*  DELETE                                                             */
   /* ------------------------------------------------------------------ */
   static async softDelete<T>(id: number): Promise<T> {
-    return this.updateById<T>(id, { status: "DELETED" });
+    return this.updateById<T>(id, { status: 'DELETED' });
   }
 
-  static async deleteById<T>(
-    id: number,
-    soft = true,
-    statusField = "status",
-  ): Promise<T> {
+  static async deleteById<T>(id: number, soft = true, statusField = 'status'): Promise<T> {
     if (soft) {
       return this.db.update({
         where: { id },
-        data: { [statusField]: "INACTIVE" },
+        data: { [statusField]: 'INACTIVE' },
       }) as Promise<T>;
     }
     return this.db.delete({ where: { id } }) as Promise<T>;
   }
 
-  static async bulkDeleteByIds<T>(
-    ids: number[],
-    soft = true,
-    statusField = "status",
-  ): Promise<T> {
+  static async bulkDeleteByIds<T>(ids: number[], soft = true, statusField = 'status'): Promise<T> {
     if (soft) {
       return this.db.updateMany({
         where: { id: { in: ids } },
-        data: { [statusField]: "inactive" },
+        data: { [statusField]: 'INACTIVE' },
       }) as Promise<T>;
     }
     return this.db.deleteMany({
@@ -245,9 +242,9 @@ class BaseRepository {
   static async toggleStatus<T>(
     id: number,
     currentStatus: string,
-    statusField = "status",
+    statusField = 'status',
   ): Promise<T> {
-    const newStatus = currentStatus === "active" ? "inactive" : "active";
+    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     return this.updateById<T>(id, { [statusField]: newStatus });
   }
 
@@ -255,9 +252,7 @@ class BaseRepository {
     return this.db.count({ where }) as Promise<number>;
   }
 
-  static async transaction<T>(
-    fn: (tx: PrismaClient) => Promise<T>,
-  ): Promise<T> {
+  static async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
     return prisma.$transaction(fn);
   }
 
@@ -278,16 +273,13 @@ class BaseRepository {
     const and: Record<string, unknown>[] = [];
     let or: Record<string, unknown>[] | undefined;
 
-    for (const [type, fields] of Object.entries(mappings) as [
-      string,
-      string[],
-    ][]) {
+    for (const [type, fields] of Object.entries(mappings) as [string, string[]][]) {
       for (const field of fields) {
         const value = params[field];
-        if (value === undefined || value === null || value === "") continue;
+        if (value === undefined || value === null || value === '') continue;
 
         const clause = this._processField(field, value, type);
-        if (type === "text") {
+        if (type === 'text') {
           (or ??= []).push(clause);
         } else {
           and.push(clause);
@@ -311,12 +303,12 @@ class BaseRepository {
     type: string,
   ): Record<string, unknown> {
     switch (type) {
-      case "numeric":
-      case "number":
+      case 'numeric':
+      case 'number':
         return { [field]: +Number(value) };
 
-      case "date":
-        if (typeof value === "string" && DATE_REGEX.test(value)) {
+      case 'date':
+        if (typeof value === 'string' && DATE_REGEX.test(value)) {
           return {
             [field]: {
               gte: new Date(`${value}T00:00:00.000Z`),
@@ -326,18 +318,18 @@ class BaseRepository {
         }
         return { [field]: new Date(value as string) };
 
-      case "text":
+      case 'text':
         return {
           [field]: {
             contains: String(value),
-            mode: "insensitive",
+            mode: 'insensitive',
           },
         };
 
-      case "exact":
+      case 'exact':
       default:
-        if (value === "true") return { [field]: true };
-        if (value === "false") return { [field]: false };
+        if (value === 'true') return { [field]: true };
+        if (value === 'false') return { [field]: false };
         return { [field]: value };
     }
   }
