@@ -1,5 +1,11 @@
-// Store slices barrel — only export slices present in this project
-export { default as authSlice } from "@store/slices/authSlice.ts";
-export { default as toastSlice } from "@store/slices/toastSlice.ts";
-export { default as uiSlice } from "@store/slices/uiSlice.ts";
-
+export * from "@store/slices/authSlice";
+export { default as authReducer } from "@store/slices/authSlice";
+export * from "@store/slices/toastSlice";
+export { default as toastReducer } from "@store/slices/toastSlice";
+export { default as uiReducer } from "@store/slices/uiSlice";
+export * from "@store/slices/farmsSlice";
+export { default as farmsReducer } from "@store/slices/farmsSlice";
+export * from "@store/slices/devicesSlice";
+export { default as devicesReducer } from "@store/slices/devicesSlice";
+export * from "@store/slices/notificationsSlice";
+export { default as notificationsReducer } from "@store/slices/notificationsSlice";

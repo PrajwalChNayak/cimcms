@@ -1,9 +1,12 @@
-import { authApi } from "@api/authApi.ts";
+import { authApi } from "@api/authApi";
+import type { User } from "@appTypes/auth.types";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 
 interface AuthState {
   token: string | null;
+  userId: string | null;
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -11,9 +14,10 @@ interface AuthState {
   loginTime?: number | null;
 }
 
-// Only the accessToken is stored — no user/role/refresh data
 const initialState: AuthState = {
   token: null,
+  userId: null,
+  user: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -25,23 +29,36 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ token?: string } | null | undefined>,
+      action: PayloadAction<
+        | { token: string; userId?: string; loginTime?: number }
+        | null
+        | undefined
+      >,
     ) => {
       const token = action.payload?.token ?? null;
       state.token = token;
+      state.userId = action.payload?.userId ?? state.userId;
+      state.loginTime = action.payload?.loginTime ?? state.loginTime;
       state.isAuthenticated = !!token;
       state.isLoading = false;
       state.error = null;
     },
-    logout: () => ({ ...initialState }),
+    setUser: (state, action: PayloadAction<User | null>) => {
+      state.user = action.payload;
+      if (action.payload) {
+        state.userId = action.payload.id;
+      }
+    },
+    setAuthError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload;
+      state.isLoading = false;
+    },
     clearError: (state) => {
       state.error = null;
     },
+    logout: () => ({ ...initialState }),
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
-    },
-    setError: (state, action: PayloadAction<string>) => {
-      state.error = action.payload;
     },
     setInitialized: (state, action: PayloadAction<boolean>) => {
       state.isInitialized = action.payload;
@@ -54,12 +71,10 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
-        const payload = action.payload as {
-          token?: string;
-          result?: { accessToken?: string };
-        };
-        const token = payload?.token ?? payload?.result?.accessToken ?? null;
+        const result = action.payload?.result;
+        const token = result?.authToken ?? null;
         state.token = token;
+        state.userId = result?.id ?? null;
         state.isAuthenticated = !!token;
         state.isLoading = false;
         state.loginTime = token ? Date.now() : null;
@@ -76,47 +91,28 @@ const authSlice = createSlice({
 
 export const {
   setCredentials,
-  logout,
+  setUser,
+  setAuthError,
   clearError,
+  logout,
   setLoading,
-  setError,
   setInitialized,
 } = authSlice.actions;
 
 // Selectors
 export const selectAuth = (state: { auth: AuthState }) => state.auth;
+export const selectAuthToken = (state: { auth: AuthState }) => state.auth.token;
+export const selectAuthUserId = (state: { auth: AuthState }) =>
+  state.auth.userId;
 export const selectIsAuthenticated = (state: { auth: AuthState }) =>
   state.auth.isAuthenticated;
+export const selectAuthUser = (state: { auth: AuthState }) => state.auth.user;
+export const selectAuthRole = (state: { auth: AuthState }) =>
+  state.auth.user?.role ?? null;
 export const selectIsLoading = (state: { auth: AuthState }) =>
   state.auth.isLoading;
 export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
-export const selectAuthToken = (state: { auth: AuthState }) => state.auth.token;
+export const selectCurrentUser = (state: { auth: AuthState }) =>
+  state.auth.user;
 
-// Backward-compatible stubs (always null/empty — no user data is stored)
-export const selectCurrentUser = () => null;
-export const selectUser = () => null;
-export const selectUserPermissions = () => [];
-export const selectPermissions = () => [];
-export const selectRoles = () => [];
-export const selectLoginResponse = () => null;
-export const selectLoginTime = () => null;
-export const selectTokenExpiry = () => null;
-export const selectSessionId = () => null;
-export const selectUserRole = () => null;
-export const selectUserFullName = () => null;
-export const selectUserInitials = () => null;
-
-// Role/permission access selector — always grants access when authenticated
-// (no roles/permissions stored since only the token is persisted)
-export const selectHasPermission = () => () => false;
-export const selectHasRole = () => () => false;
-export const selectCanAccess =
-  (requiredPermissions: string[] = [], requiredRoles: string[] = []) =>
-  (state: { auth: AuthState }) => {
-    if (!state.auth.isAuthenticated) return false;
-    // No role data stored; grant access if route has no specific requirements
-    return requiredPermissions.length === 0 && requiredRoles.length === 0;
-  };
-
-export type { AuthState };
 export default authSlice.reducer;

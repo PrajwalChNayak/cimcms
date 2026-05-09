@@ -36,6 +36,41 @@ export const protectedRoutes: RouteConfig[] = [
     permissions: [],
     roles: [],
   },
+  {
+    path: "/farms",
+    element: "FarmsPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
+  {
+    path: "/farms/:farmId",
+    element: "FarmDetailPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
+  {
+    path: "/devices",
+    element: "DevicesPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
+  {
+    path: "/devices/:deviceId",
+    element: "DeviceDetailPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
+  {
+    path: "/settings",
+    element: "SettingsPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
 ];
 
 // Error routes

@@ -22,7 +22,6 @@ const App: React.FC = () => {
   return (
     <Provider store={store}>
       <PersistGate
-        // loading={<LoadingSpinner fullscreen text="Loading application..." />}
         persistor={persistor}
       >
         <div className="App">

@@ -1,4 +1,5 @@
 import Breadcrumb from "@shared/layouts/dashboard/Breadcrumb";
+import { NotificationBell } from "@shared/components/ui/NotificationBell";
 import { useRef, useState } from "react";
 
 /* ── Icon components ── */
@@ -98,14 +99,7 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
                 </button>
 
                 {/* Notifications */}
-                <button
-                    type="button"
-                    className="relative flex items-center justify-center w-9 h-9 rounded-btn text-text-secondary hover:bg-primary/5 hover:text-text-primary transition-colors cursor-pointer"
-                >
-                    <BellIcon />
-                    {/* Notification dot */}
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface" />
-                </button>
+                <NotificationBell />
 
                 {/* Profile */}
                 <div className="relative" ref={profileRef}>

@@ -17,14 +17,18 @@
     "jsx": "react-jsx",
 
     /* Path aliases */
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@api/*": ["src/api/*"],
-      "@store/*": ["src/store/*"],
-      "@shared/*": ["src/shared/*"],
-      "@app_types/*": ["src/types/*"],
-      "@view/*": ["src/view/*"]
+      "@/*": ["./src/*"],
+      "@api/*": ["./src/api/*"],
+      "@store/*": ["./src/store/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@appTypes/*": ["./src/types/*"],
+      "@config/*": ["./src/config/*"],
+      "@repository/*": ["./src/repository/*"],
+      "@viewModels/*": ["./src/viewmodels/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@components/*": ["./src/components/*"],
+      "@view/*": ["./src/view/*"]
     },
 
     /* Linting */

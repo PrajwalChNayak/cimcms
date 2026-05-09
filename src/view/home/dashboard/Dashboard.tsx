@@ -1,75 +1,15 @@
 import { useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { selectAllFarms } from "@store/slices/farmsSlice";
+import { selectAllDevices } from "@store/slices/devicesSlice";
+import { selectNotifications } from "@store/slices/notificationsSlice";
+import DataTableDemo from "./DataTableDemo_Version2";
 
 /* ═══════════════════════════════════════════
    Mock Data — replace with real API later
    ═══════════════════════════════════════════ */
 
-const stats = [
-    {
-        label: "Active Devices",
-        value: "248",
-        change: "+12",
-        trend: "up" as const,
-        icon: "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z",
-        color: "primary",
-    },
-    {
-        label: "Soil Moisture",
-        value: "68%",
-        change: "+3%",
-        trend: "up" as const,
-        icon: "M12 21a8 8 0 01-8-8c0-4.42 8-12 8-12s8 7.58 8 12a8 8 0 01-8 8z",
-        color: "secondary",
-    },
-    {
-        label: "Avg Temperature",
-        value: "24°C",
-        change: "-1°",
-        trend: "down" as const,
-        icon: "M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z",
-        color: "warning",
-    },
-    {
-        label: "Active Alerts",
-        value: "7",
-        change: "-2",
-        trend: "down" as const,
-        icon: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z",
-        color: "error",
-    },
-];
-
-const colorMap: Record<string, { bg: string; text: string; ring: string }> = {
-    primary: { bg: "bg-primary/10", text: "text-primary", ring: "ring-primary/20" },
-    secondary: { bg: "bg-secondary/10", text: "text-secondary", ring: "ring-secondary/20" },
-    warning: { bg: "bg-warning/10", text: "text-warning", ring: "ring-warning/20" },
-    error: { bg: "bg-error/10", text: "text-error", ring: "ring-error/20" },
-};
-
-const devices = [
-    { name: "Field Sensor A1", zone: "Zone A — North", status: "online", battery: 92, signal: "strong" },
-    { name: "Irrigation Valve B3", zone: "Zone B — East", status: "online", battery: 78, signal: "good" },
-    { name: "Weather Station C1", zone: "Zone C — Central", status: "warning", battery: 34, signal: "good" },
-    { name: "Soil Probe D2", zone: "Zone D — South", status: "offline", battery: 5, signal: "weak" },
-    { name: "Drone Hub E1", zone: "Zone E — West", status: "online", battery: 100, signal: "strong" },
-];
-
-const alerts = [
-    { id: 1, message: "Soil moisture below threshold in Zone D", severity: "high", time: "5 min ago" },
-    { id: 2, message: "Soil Probe D2 battery critically low", severity: "high", time: "12 min ago" },
-    { id: 3, message: "Weather Station C1 battery needs attention", severity: "medium", time: "1 hr ago" },
-    { id: 4, message: "Temperature spike detected in Zone A", severity: "medium", time: "2 hr ago" },
-    { id: 5, message: "Irrigation schedule completed for Zone B", severity: "low", time: "3 hr ago" },
-];
-
-const cropZones = [
-    { name: "Zone A", crop: "Wheat", health: 92, moisture: 72, area: "12 ha" },
-    { name: "Zone B", crop: "Rice", health: 88, moisture: 85, area: "8 ha" },
-    { name: "Zone C", crop: "Corn", health: 76, moisture: 58, area: "15 ha" },
-    { name: "Zone D", crop: "Soybean", health: 64, moisture: 42, area: "10 ha" },
-];
-
-/* ── Hourly readings for the mini chart ── */
 const hourlyReadings = [65, 63, 60, 58, 55, 53, 52, 54, 58, 62, 66, 68, 72, 74, 73, 71, 69, 67, 65, 64, 62, 61, 63, 65];
 
 /* ═══════════════════════════════════════════
@@ -176,6 +116,96 @@ const ProgressRing = ({ value, size = 48, stroke = 4, color = "var(--color-prima
 
 const Dashboard = () => {
     const [selectedPeriod, setSelectedPeriod] = useState<"today" | "week" | "month">("today");
+    const navigate = useNavigate();
+
+    // Live data from Redux store
+    const farms = useSelector(selectAllFarms);
+    const allDevices = useSelector(selectAllDevices);
+    const notifications = useSelector(selectNotifications);
+
+    const totalDevices = allDevices.length;
+    const onlineDevices = allDevices.filter((d) => d.status === "online").length;
+    const errorDevices = allDevices.filter((d) => d.status === "error").length;
+    const unreadAlerts = notifications.filter((n) => !n.read).length;
+
+    const stats = [
+        {
+            label: "Total Farms",
+            value: String(farms.length),
+            change: "+0",
+            trend: "up" as const,
+            icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 004 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+            color: "primary",
+        },
+        {
+            label: "Active Devices",
+            value: String(onlineDevices),
+            change: `${onlineDevices}/${totalDevices}`,
+            trend: "up" as const,
+            icon: "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z",
+            color: "secondary",
+        },
+        {
+            label: "Device Errors",
+            value: String(errorDevices),
+            change: errorDevices > 0 ? "Attention needed" : "All clear",
+            trend: errorDevices > 0 ? "down" as const : "up" as const,
+            icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z",
+            color: "warning",
+        },
+        {
+            label: "Active Alerts",
+            value: String(unreadAlerts),
+            change: unreadAlerts > 0 ? "Unread" : "None",
+            trend: unreadAlerts > 0 ? "down" as const : "up" as const,
+            icon: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z",
+            color: "error",
+        },
+    ];
+
+    const colorMap: Record<string, { bg: string; text: string; ring: string }> = {
+        primary: { bg: "bg-primary/10", text: "text-primary", ring: "ring-primary/20" },
+        secondary: { bg: "bg-secondary/10", text: "text-secondary", ring: "ring-secondary/20" },
+        warning: { bg: "bg-warning/10", text: "text-warning", ring: "ring-warning/20" },
+        error: { bg: "bg-error/10", text: "text-error", ring: "ring-error/20" },
+    };
+
+    // Top devices (first 5)
+    const devices = allDevices.slice(0, 5).map((d) => ({
+        name: d.name,
+        zone: farms.find((f) => f.id === d.farmId)?.name ?? "—",
+        status: d.status === "error" ? "warning" : d.status,
+        battery: d.batteryLevel ?? 0,
+        signal: d.signalStrength ?? "weak",
+    }));
+
+    // Alerts from notifications
+    const alerts = notifications.slice(0, 5).map((n, idx) => ({
+        id: idx,
+        message: n.message,
+        severity: n.severity === "critical" ? "high" : n.severity === "warning" ? "medium" : "low",
+        time: (() => {
+            const diff = Date.now() - new Date(n.timestamp).getTime();
+            const mins = Math.floor(diff / 60_000);
+            if (mins < 60) return `${mins} min ago`;
+            return `${Math.floor(mins / 60)} hr ago`;
+        })(),
+    }));
+
+    // Farm health zones
+    const cropZones = farms.slice(0, 4).map((f) => {
+        const fDevices = allDevices.filter((d) => d.farmId === f.id);
+        const health = fDevices.length
+            ? Math.round((fDevices.filter((d) => d.status === "online").length / fDevices.length) * 100)
+            : 0;
+        return {
+            name: f.name,
+            crop: f.location,
+            health,
+            moisture: Math.floor(Math.random() * 30) + 50,
+            area: f.area ?? "—",
+        };
+    });
 
     const greeting = () => {
         const h = new Date().getHours();
@@ -349,7 +379,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="px-5 py-3 border-t border-border">
-                        <button type="button" className="text-xs font-medium text-primary hover:text-primary-light transition-colors cursor-pointer">
+                        <button type="button" onClick={() => navigate("/devices")} className="text-xs font-medium text-primary hover:text-primary-light transition-colors cursor-pointer">
                             View all devices →
                         </button>
                     </div>
@@ -389,27 +419,29 @@ const Dashboard = () => {
                     </div>
 
                     <div className="px-5 py-3 border-t border-border">
-                        <button type="button" className="text-xs font-medium text-primary hover:text-primary-light transition-colors cursor-pointer">
-                            View all alerts →
+                        <button type="button" onClick={() => navigate("/farms")} className="text-xs font-medium text-primary hover:text-primary-light transition-colors cursor-pointer">
+                            View all farms →
                         </button>
                     </div>
                 </div>
             </div>
+
+            <DataTableDemo />
+
 
             {/* ── Quick-Actions Bar ── */}
             <div className="rounded-card bg-surface border border-border p-5 shadow-sm">
                 <h2 className="text-base font-semibold text-text-primary mb-3">Quick Actions</h2>
                 <div className="flex flex-wrap gap-2">
                     {[
-                        { label: "Add Device", icon: "M12 4.5v15m7.5-7.5h-15" },
-                        { label: "Schedule Irrigation", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
-                        { label: "Generate Report", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
-                        { label: "View Map", icon: "M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" },
-                        { label: "System Settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" },
+                        { label: "View Farms", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 004 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", href: "/farms" },
+                        { label: "All Devices", icon: "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z", href: "/devices" },
+                        { label: "System Settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z", href: "/settings" },
                     ].map((a) => (
                         <button
                             key={a.label}
                             type="button"
+                            onClick={() => navigate(a.href)}
                             className="inline-flex items-center gap-1.5 rounded-btn border border-border bg-surface px-3 py-2 text-sm font-medium text-text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
                         >
                             <SvgIcon d={a.icon} className="w-4 h-4 text-primary" />

@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Suspense, lazy } from "react";
+import { lazy } from "react";
 import { useSelector } from "react-redux";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -13,7 +13,6 @@ import { DashboardLayout } from "@shared/layouts/DashboardLayout.tsx";
 import { PublicLayout } from "@shared/layouts/PublicLayout.tsx";
 
 // Loading component
-import { LoadingSpinner } from "@shared/components/loading/index.ts";
 
 // Route configuration
 
@@ -34,6 +33,12 @@ const Login = lazy(() => import("@view/auth/LoginPage.tsx"));
 const ForbiddenScreen = lazy(() => import("@view/errors/ForbiddenScreen.tsx"));
 const NotFoundScreen = lazy(() => import("@view/errors/NotFoundScreen.tsx"));
 const ServerErrorScreen = lazy(() => import("@view/errors/ServerErrorScreen.tsx"));
+const FarmsPage = lazy(() => import("@view/farms/FarmsPage.tsx").then((m) => ({ default: m.FarmsPage })));
+const FarmDetailPage = lazy(() => import("@view/farms/FarmDetailPage.tsx").then((m) => ({ default: m.FarmDetailPage })));
+const DevicesPage = lazy(() => import("@view/devices/DevicesPage.tsx").then((m) => ({ default: m.DevicesPage })));
+const DeviceDetailPage = lazy(() => import("@view/devices/DeviceDetailPage.tsx").then((m) => ({ default: m.DeviceDetailPage })));
+const SettingsPage = lazy(() => import("@view/settings/SettingsPage.tsx").then((m) => ({ default: m.SettingsPage })));
+
 // Component mapping
 const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
     Login,
@@ -41,6 +46,11 @@ const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
     ForbiddenScreen,
     NotFoundScreen,
     ServerErrorScreen,
+    FarmsPage,
+    FarmDetailPage,
+    DevicesPage,
+    DeviceDetailPage,
+    SettingsPage,
 };
 
 /**
@@ -61,11 +71,11 @@ const getComponent = (componentName: string): (React.FC) => {
 const renderRoute = (route: RouteConfig, isProtected = false): JSX.Element => {
     const Component = getComponent(route.element);
 
-    const routeElement = (
-        <Suspense fallback={<LoadingSpinner />}>
-            <Component />
-        </Suspense>
-    );
+    // const routeElement = (
+    //     <Suspense fallback={<SplashScreen />}>
+    //         <Component />
+    //     </Suspense>
+    // );
 
     if (isProtected) {
         return (
@@ -73,12 +83,12 @@ const renderRoute = (route: RouteConfig, isProtected = false): JSX.Element => {
                 requiredPermissions={route.permissions ?? []}
                 requiredRoles={route.roles ?? []}
             >
-                {routeElement}
+                <Component />
             </ProtectedRoute>
         );
     }
 
-    return <PublicRoute>{routeElement}</PublicRoute>;
+    return <PublicRoute> <Component /></PublicRoute>;
 };
 
 /**

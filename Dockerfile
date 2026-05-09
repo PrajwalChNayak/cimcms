@@ -30,4 +30,4 @@ COPY --from=build /app/dist ./dist
 EXPOSE 3503
 
 # Start serve
-CMD ["serve", "-s", "dist", "-l", "3815"]
+CMD ["serve", "-s", "dist", "-l", "3815"]   
