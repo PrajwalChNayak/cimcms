@@ -6,24 +6,6 @@ import { addToast, setCredentials } from "@store/index";
 import { useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
-interface LoginViewModelReturn {
-  // Form
-  values: LoginFormState;
-  errors: Partial<LoginFormErrors>;
-  touched: Partial<Record<keyof LoginFormState, boolean>>;
-  handleChange: (field: keyof LoginFormState) => (value: string) => void;
-  handleBlur: (field: keyof LoginFormState) => () => Promise<void>;
-  handleSubmit: () => Promise<void>;
-  resetForm: () => void;
-
-  // State
-  isLoading: boolean;
-  loginError: string | null;
-
-  // Actions
-  clearLoginError: () => void;
-}
-
 export const useLoginViewModel = () => {
   const dispatch = useAppDispatch();
   const { login, loginState, clearLoginError } = useAuthRepository();

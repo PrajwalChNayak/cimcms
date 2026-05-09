@@ -4,7 +4,7 @@ import {
   useGetDevicesQuery,
   useUpdateDeviceMutation,
 } from "@api/deviceApi";
-import type { ApiResponse, PaginatedResponse } from "@appTypes/api.types";
+import type { ApiResponse } from "@appTypes/api.types";
 import type {
   CreateDeviceRequest,
   Device,
@@ -87,6 +87,3 @@ export const useDeviceRepository = (params?: GetDevicesParams) => {
     PAGE_LIMIT,
   };
 };
-
-// Suppress unused import warning - PaginatedResponse used as type context
-type _Unused = PaginatedResponse<Device>;

@@ -1,5 +1,4 @@
 import type { FarmSummary } from "@appTypes/farm.types";
-import { selectAllDevices } from "@store/slices/devicesSlice";
 import {
   addFarm,
   selectAllFarms,
@@ -12,7 +11,6 @@ import { useDispatch, useSelector } from "react-redux";
 export const useFarmsViewModel = () => {
   const dispatch = useDispatch();
   const farms = useSelector(selectAllFarms);
-  const devices = useSelector(selectAllDevices);
   const searchQuery = useSelector(selectFarmsSearch);
 
   const filteredFarms = useMemo(

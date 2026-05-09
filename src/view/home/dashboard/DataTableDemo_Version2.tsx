@@ -5,6 +5,7 @@ import { useState } from "react";
    Types
 ───────────────────────────────────────── */
 interface Employee {
+  [key: string]: unknown;
   id: number;
   name: string;
   email: string;
