@@ -1,6 +1,6 @@
-import type { Farm, FarmSummary } from "@appTypes/farm.types";
-import type { Device, ReadingPoint } from "@appTypes/device.types";
 import type { User } from "@appTypes/auth.types";
+import type { Device, ReadingPoint } from "@appTypes/device.types";
+import type { Farm, FarmSummary } from "@appTypes/farm.types";
 
 // ─── Users ────────────────────────────────────────────────
 export const mockUser: User = {
@@ -63,7 +63,11 @@ export const mockDevices: Device[] = [
     type: "wind_sensor",
     farmId: "farm-001",
     status: "online",
-    lastReading: { value: 12.4, unit: "km/h", timestamp: "2026-05-09T10:42:00Z" },
+    lastReading: {
+      value: 12.4,
+      unit: "km/h",
+      timestamp: "2026-05-09T10:42:00Z",
+    },
     lastSeen: "2026-05-09T10:42:00Z",
     batteryLevel: 87,
     signalStrength: "strong",
@@ -135,7 +139,11 @@ export const mockDevices: Device[] = [
     type: "wind_sensor",
     farmId: "farm-002",
     status: "online",
-    lastReading: { value: 8.1, unit: "km/h", timestamp: "2026-05-09T10:43:00Z" },
+    lastReading: {
+      value: 8.1,
+      unit: "km/h",
+      timestamp: "2026-05-09T10:43:00Z",
+    },
     lastSeen: "2026-05-09T10:43:00Z",
     batteryLevel: 60,
     signalStrength: "good",
@@ -163,7 +171,11 @@ export const mockDevices: Device[] = [
     type: "water_flow_meter",
     farmId: "farm-002",
     status: "online",
-    lastReading: { value: 34.5, unit: "L/min", timestamp: "2026-05-09T10:44:00Z" },
+    lastReading: {
+      value: 34.5,
+      unit: "L/min",
+      timestamp: "2026-05-09T10:44:00Z",
+    },
     lastSeen: "2026-05-09T10:44:00Z",
     batteryLevel: 83,
     signalStrength: "strong",
@@ -250,7 +262,11 @@ export const mockDevices: Device[] = [
     type: "water_flow_meter",
     farmId: "farm-004",
     status: "online",
-    lastReading: { value: 18.3, unit: "L/min", timestamp: "2026-05-09T10:44:00Z" },
+    lastReading: {
+      value: 18.3,
+      unit: "L/min",
+      timestamp: "2026-05-09T10:44:00Z",
+    },
     lastSeen: "2026-05-09T10:44:00Z",
     batteryLevel: 72,
     signalStrength: "good",
@@ -273,7 +289,11 @@ export const mockFarmSummaries: FarmSummary[] = mockFarms.map((farm) => {
 });
 
 // ─── Historical Data Generator ────────────────────────────
-const generateHistory = (base: number, points = 24, variance = 3): ReadingPoint[] => {
+const generateHistory = (
+  base: number,
+  points = 24,
+  variance = 3,
+): ReadingPoint[] => {
   const now = Date.now();
   return Array.from({ length: points }, (_, i) => ({
     timestamp: new Date(now - (points - 1 - i) * 3600_000).toISOString(),
@@ -282,16 +302,16 @@ const generateHistory = (base: number, points = 24, variance = 3): ReadingPoint[
 };
 
 export const mockHistoricalData: Record<string, ReadingPoint[]> = {
-  "dev-001": generateHistory(12, 24, 4),   // wind speed
-  "dev-002": generateHistory(22, 24, 2),   // water temp
-  "dev-004": generateHistory(30, 24, 10),  // flow meter
-  "dev-005": generateHistory(68, 24, 5),   // soil moisture
-  "dev-006": generateHistory(8, 24, 3),    // wind speed
-  "dev-008": generateHistory(34, 24, 8),   // flow meter
-  "dev-010": generateHistory(25, 24, 3),   // weather station temp
-  "dev-011": generateHistory(52, 24, 6),   // soil moisture
-  "dev-013": generateHistory(29, 24, 2),   // water temp
-  "dev-014": generateHistory(18, 24, 4),   // flow meter
+  "dev-001": generateHistory(12, 24, 4), // wind speed
+  "dev-002": generateHistory(22, 24, 2), // water temp
+  "dev-004": generateHistory(30, 24, 10), // flow meter
+  "dev-005": generateHistory(68, 24, 5), // soil moisture
+  "dev-006": generateHistory(8, 24, 3), // wind speed
+  "dev-008": generateHistory(34, 24, 8), // flow meter
+  "dev-010": generateHistory(25, 24, 3), // weather station temp
+  "dev-011": generateHistory(52, 24, 6), // soil moisture
+  "dev-013": generateHistory(29, 24, 2), // water temp
+  "dev-014": generateHistory(18, 24, 4), // flow meter
 };
 
 // ─── Notifications ────────────────────────────────────────
@@ -332,7 +352,8 @@ export const mockNotifications: Notification[] = [
     deviceId: "dev-012",
     farmId: "farm-003",
     title: "Device Error",
-    message: "Irrigation Valve IV-01 is reporting errors. Battery critically low.",
+    message:
+      "Irrigation Valve IV-01 is reporting errors. Battery critically low.",
     severity: "warning",
     read: false,
     timestamp: "2026-05-09T07:00:00Z",
@@ -342,7 +363,8 @@ export const mockNotifications: Notification[] = [
     deviceId: "dev-001",
     farmId: "farm-001",
     title: "High Wind Speed",
-    message: "Wind Sensor WS-01 detected wind speed above threshold (12+ km/h).",
+    message:
+      "Wind Sensor WS-01 detected wind speed above threshold (12+ km/h).",
     severity: "warning",
     read: true,
     timestamp: "2026-05-09T10:42:00Z",

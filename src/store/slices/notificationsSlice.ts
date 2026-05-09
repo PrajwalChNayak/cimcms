@@ -1,7 +1,7 @@
-import type { PayloadAction } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
 import type { Notification } from "@api/mockData";
 import { mockNotifications } from "@api/mockData";
+import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 
 interface NotificationsState {
   items: Notification[];
@@ -40,11 +40,14 @@ export const {
   closeNotificationsPanel,
 } = notificationsSlice.actions;
 
-export const selectNotifications = (state: { notifications: NotificationsState }) =>
-  state.notifications.items;
-export const selectUnreadCount = (state: { notifications: NotificationsState }) =>
-  state.notifications.items.filter((n) => !n.read).length;
-export const selectNotificationsPanelOpen = (state: { notifications: NotificationsState }) =>
-  state.notifications.isOpen;
+export const selectNotifications = (state: {
+  notifications: NotificationsState;
+}) => state.notifications.items;
+export const selectUnreadCount = (state: {
+  notifications: NotificationsState;
+}) => state.notifications.items.filter((n) => !n.read).length;
+export const selectNotificationsPanelOpen = (state: {
+  notifications: NotificationsState;
+}) => state.notifications.isOpen;
 
 export default notificationsSlice.reducer;

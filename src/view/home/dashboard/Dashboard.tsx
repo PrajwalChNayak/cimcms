@@ -1,9 +1,9 @@
+import { selectAllDevices } from "@store/slices/devicesSlice";
+import { selectAllFarms } from "@store/slices/farmsSlice";
+import { selectNotifications } from "@store/slices/notificationsSlice";
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { selectAllFarms } from "@store/slices/farmsSlice";
-import { selectAllDevices } from "@store/slices/devicesSlice";
-import { selectNotifications } from "@store/slices/notificationsSlice";
 import DataTableDemo from "./DataTableDemo_Version2";
 
 /* ═══════════════════════════════════════════

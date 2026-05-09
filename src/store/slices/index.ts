@@ -1,11 +1,11 @@
 export * from "@store/slices/authSlice";
 export { default as authReducer } from "@store/slices/authSlice";
+export * from "@store/slices/devicesSlice";
+export { default as devicesReducer } from "@store/slices/devicesSlice";
+export * from "@store/slices/farmsSlice";
+export { default as farmsReducer } from "@store/slices/farmsSlice";
+export * from "@store/slices/notificationsSlice";
+export { default as notificationsReducer } from "@store/slices/notificationsSlice";
 export * from "@store/slices/toastSlice";
 export { default as toastReducer } from "@store/slices/toastSlice";
 export { default as uiReducer } from "@store/slices/uiSlice";
-export * from "@store/slices/farmsSlice";
-export { default as farmsReducer } from "@store/slices/farmsSlice";
-export * from "@store/slices/devicesSlice";
-export { default as devicesReducer } from "@store/slices/devicesSlice";
-export * from "@store/slices/notificationsSlice";
-export { default as notificationsReducer } from "@store/slices/notificationsSlice";

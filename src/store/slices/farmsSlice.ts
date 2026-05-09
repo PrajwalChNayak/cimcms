@@ -1,7 +1,7 @@
+import { mockFarmSummaries } from "@api/mockData";
+import type { FarmSummary } from "@appTypes/farm.types";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import type { FarmSummary } from "@appTypes/farm.types";
-import { mockFarmSummaries } from "@api/mockData";
 
 interface FarmsState {
   items: FarmSummary[];
@@ -41,7 +41,10 @@ const farmsSlice = createSlice({
     addFarm(state, action: PayloadAction<FarmSummary>) {
       state.items.push(action.payload);
     },
-    updateFarm(state, action: PayloadAction<Partial<FarmSummary> & { id: string }>) {
+    updateFarm(
+      state,
+      action: PayloadAction<Partial<FarmSummary> & { id: string }>,
+    ) {
       const idx = state.items.findIndex((f) => f.id === action.payload.id);
       if (idx !== -1) {
         state.items[idx] = { ...state.items[idx], ...action.payload };
@@ -66,9 +69,13 @@ export const {
 
 // Selectors
 export const selectFarmsState = (state: { farms: FarmsState }) => state.farms;
-export const selectAllFarms = (state: { farms: FarmsState }) => state.farms.items;
-export const selectSelectedFarmId = (state: { farms: FarmsState }) => state.farms.selectedFarmId;
-export const selectFarmsSearch = (state: { farms: FarmsState }) => state.farms.searchQuery;
-export const selectFarmsLoading = (state: { farms: FarmsState }) => state.farms.isLoading;
+export const selectAllFarms = (state: { farms: FarmsState }) =>
+  state.farms.items;
+export const selectSelectedFarmId = (state: { farms: FarmsState }) =>
+  state.farms.selectedFarmId;
+export const selectFarmsSearch = (state: { farms: FarmsState }) =>
+  state.farms.searchQuery;
+export const selectFarmsLoading = (state: { farms: FarmsState }) =>
+  state.farms.isLoading;
 
 export default farmsSlice.reducer;

@@ -1,8 +1,8 @@
-import { useSelector, useDispatch } from "react-redux";
-import { useMemo } from "react";
-import { selectAllDevices, selectDevicesSearch, setDevicesSearch, toggleDoorLock } from "@store/slices/devicesSlice";
-import { selectAllFarms } from "@store/slices/farmsSlice";
 import { mockHistoricalData } from "@api/mockData";
+import { selectAllDevices, toggleDoorLock } from "@store/slices/devicesSlice";
+import { selectAllFarms } from "@store/slices/farmsSlice";
+import { useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 export const useDeviceDetailViewModel = (deviceId: string | undefined) => {
   const dispatch = useDispatch();

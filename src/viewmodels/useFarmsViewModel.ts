@@ -1,8 +1,13 @@
-import { useSelector, useDispatch } from "react-redux";
-import { useMemo } from "react";
-import { selectAllFarms, selectFarmsSearch, setFarmsSearch, addFarm } from "@store/slices/farmsSlice";
-import { selectAllDevices } from "@store/slices/devicesSlice";
 import type { FarmSummary } from "@appTypes/farm.types";
+import { selectAllDevices } from "@store/slices/devicesSlice";
+import {
+  addFarm,
+  selectAllFarms,
+  selectFarmsSearch,
+  setFarmsSearch,
+} from "@store/slices/farmsSlice";
+import { useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 export const useFarmsViewModel = () => {
   const dispatch = useDispatch();
@@ -26,7 +31,11 @@ export const useFarmsViewModel = () => {
 
   const setSearch = (q: string) => dispatch(setFarmsSearch(q));
 
-  const createFarm = (data: { name: string; location: string; description?: string }) => {
+  const createFarm = (data: {
+    name: string;
+    location: string;
+    description?: string;
+  }) => {
     const farm: FarmSummary = {
       id: `farm-${Date.now()}`,
       name: data.name,

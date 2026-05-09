@@ -1,7 +1,7 @@
+import { mockDevices } from "@api/mockData";
+import type { Device } from "@appTypes/device.types";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import type { Device } from "@appTypes/device.types";
-import { mockDevices } from "@api/mockData";
 
 interface DevicesState {
   items: Device[];
@@ -47,7 +47,10 @@ const devicesSlice = createSlice({
     setDevicesFilterFarm(state, action: PayloadAction<string | null>) {
       state.filterFarmId = action.payload;
     },
-    setDevicesFilterStatus(state, action: PayloadAction<Device["status"] | "all">) {
+    setDevicesFilterStatus(
+      state,
+      action: PayloadAction<Device["status"] | "all">,
+    ) {
       state.filterStatus = action.payload;
     },
     setDevicesFilterType(state, action: PayloadAction<string | "all">) {
@@ -56,7 +59,10 @@ const devicesSlice = createSlice({
     addDevice(state, action: PayloadAction<Device>) {
       state.items.push(action.payload);
     },
-    updateDevice(state, action: PayloadAction<Partial<Device> & { id: string }>) {
+    updateDevice(
+      state,
+      action: PayloadAction<Partial<Device> & { id: string }>,
+    ) {
       const idx = state.items.findIndex((d) => d.id === action.payload.id);
       if (idx !== -1) {
         state.items[idx] = { ...state.items[idx], ...action.payload };
@@ -95,15 +101,24 @@ export const {
 } = devicesSlice.actions;
 
 // Selectors
-export const selectDevicesState = (state: { devices: DevicesState }) => state.devices;
-export const selectAllDevices = (state: { devices: DevicesState }) => state.devices.items;
-export const selectSelectedDeviceId = (state: { devices: DevicesState }) => state.devices.selectedDeviceId;
-export const selectDevicesSearch = (state: { devices: DevicesState }) => state.devices.searchQuery;
-export const selectDevicesFilterFarm = (state: { devices: DevicesState }) => state.devices.filterFarmId;
-export const selectDevicesFilterStatus = (state: { devices: DevicesState }) => state.devices.filterStatus;
-export const selectDevicesFilterType = (state: { devices: DevicesState }) => state.devices.filterType;
-export const selectDevicesLoading = (state: { devices: DevicesState }) => state.devices.isLoading;
-export const selectDevicesByFarm = (farmId: string) => (state: { devices: DevicesState }) =>
-  state.devices.items.filter((d) => d.farmId === farmId);
+export const selectDevicesState = (state: { devices: DevicesState }) =>
+  state.devices;
+export const selectAllDevices = (state: { devices: DevicesState }) =>
+  state.devices.items;
+export const selectSelectedDeviceId = (state: { devices: DevicesState }) =>
+  state.devices.selectedDeviceId;
+export const selectDevicesSearch = (state: { devices: DevicesState }) =>
+  state.devices.searchQuery;
+export const selectDevicesFilterFarm = (state: { devices: DevicesState }) =>
+  state.devices.filterFarmId;
+export const selectDevicesFilterStatus = (state: { devices: DevicesState }) =>
+  state.devices.filterStatus;
+export const selectDevicesFilterType = (state: { devices: DevicesState }) =>
+  state.devices.filterType;
+export const selectDevicesLoading = (state: { devices: DevicesState }) =>
+  state.devices.isLoading;
+export const selectDevicesByFarm =
+  (farmId: string) => (state: { devices: DevicesState }) =>
+    state.devices.items.filter((d) => d.farmId === farmId);
 
 export default devicesSlice.reducer;
