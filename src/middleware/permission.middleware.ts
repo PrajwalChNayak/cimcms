@@ -1,7 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
 
-
-
 // ─── requirePermission ────────────────────────────────────────────────────────
 /**
  * Factory guard — pass one or more permission names.
@@ -38,6 +36,7 @@ export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const userRoles = req.subject?.roles ?? [];
     const hasRole = roles.some((r) => userRoles.includes(r));
+    console.log(userRoles, roles, hasRole);
     if (!hasRole) {
       res.status(403).json({
         success: false,

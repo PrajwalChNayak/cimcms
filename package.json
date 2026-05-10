@@ -18,6 +18,7 @@
     "db:push": "prisma db push && prisma generate",
     "prisma:studio": "npx prisma studio",
     "prisma:format": "prisma format",
+    "seed": "tsx src/models/seed.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

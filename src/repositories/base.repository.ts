@@ -154,6 +154,7 @@ class BaseRepository {
       fieldMappings,
       additionalWhere,
       include,
+      select,
       orderBy = { created_at: 'desc' },
     }: FindAllOptions = {},
   ): Promise<PaginationResult<T>> {
@@ -171,6 +172,7 @@ class BaseRepository {
         skip,
         take,
         orderBy,
+        ...(select && { select }),
         ...(include && { include }),
       }) as Promise<T[]>,
     ]);
@@ -214,7 +216,11 @@ class BaseRepository {
     return this.updateById<T>(id, { status: 'DELETED' });
   }
 
-  static async deleteById<T>(id: number, soft = true, statusField = 'status'): Promise<T> {
+  static async deleteById<T>(
+    id: number,
+    soft = true,
+    statusField = 'status',
+  ): Promise<T> {
     if (soft) {
       return this.db.update({
         where: { id },
@@ -224,7 +230,11 @@ class BaseRepository {
     return this.db.delete({ where: { id } }) as Promise<T>;
   }
 
-  static async bulkDeleteByIds<T>(ids: number[], soft = true, statusField = 'status'): Promise<T> {
+  static async bulkDeleteByIds<T>(
+    ids: number[],
+    soft = true,
+    statusField = 'status',
+  ): Promise<T> {
     if (soft) {
       return this.db.updateMany({
         where: { id: { in: ids } },

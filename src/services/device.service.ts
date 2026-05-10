@@ -10,15 +10,15 @@ class DeviceService {
   }
 
   static async createDeviceFarmer(
-    id: string,
+    deviceId: string,
     data: Omit<DeviceCreateInput, 'consumerId'>,
   ): Promise<Device> {
-    const existing = await DeviceRepository.existsById<Device>(id as string);
+    const existing = await DeviceRepository.findOne<Device>({ deviceId });
 
     if (!existing) throw new NotFoundError('Device not found');
 
     return DeviceRepository.updateById<Device>(
-      id as unknown as number,
+      existing.id as unknown as number,
       data as Record<string, unknown>,
     );
   }
@@ -57,7 +57,10 @@ class DeviceService {
     return device;
   }
 
-  static async updateDevice(id: string, data: Partial<DeviceCreateInput>): Promise<Device> {
+  static async updateDevice(
+    id: string,
+    data: Partial<DeviceCreateInput>,
+  ): Promise<Device> {
     const existing = await DeviceRepository.findOne<Device>({ id });
     if (!existing) throw new NotFoundError('Device not found');
     return DeviceRepository.updateById<Device>(

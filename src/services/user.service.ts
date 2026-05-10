@@ -42,14 +42,19 @@ class UserService {
     const searchParams: Record<string, unknown> = {};
     if (name) searchParams.name = name;
     if (status) searchParams.status = status;
-    return RoleRepository.findAll<Role>(p, l, searchParams, { orderBy: { createdAt: 'desc' } });
+    return RoleRepository.findAll<Role>(p, l, searchParams, {
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   static async getUserRoleById(id: string): Promise<Record<string, unknown> | null> {
     return RoleRepository.findWithPermissions(id);
   }
 
-  static async updateUserRole(id: string, data: { name?: string; status?: string }): Promise<Role> {
+  static async updateUserRole(
+    id: string,
+    data: { name?: string; status?: string },
+  ): Promise<Role> {
     return RoleRepository.updateById<Role>(id as unknown as number, data);
   }
 
@@ -99,7 +104,10 @@ class UserService {
   }
 
   static async togglePermission(id: string, currentStatus: string): Promise<Permission> {
-    return PermissionRepository.toggleStatus<Permission>(id as unknown as number, currentStatus);
+    return PermissionRepository.toggleStatus<Permission>(
+      id as unknown as number,
+      currentStatus,
+    );
   }
 
   // ─── RolePermission junction ──────────────────────────────────────────────
@@ -113,14 +121,20 @@ class UserService {
   }
 
   /** Removes a permission from a role via the RolePermission junction table. */
-  static async removePermissionFromRole(roleId: string, permissionId: string): Promise<void> {
+  static async removePermissionFromRole(
+    roleId: string,
+    permissionId: string,
+  ): Promise<void> {
     return RolePermissionRepository.revoke(roleId, permissionId);
   }
 
   // ─── UserRole junction ────────────────────────────────────────────────────
 
   /** Assigns a role to a user via the UserRole junction table. */
-  static async assignRoleToUser(userId: string, roleId: string): Promise<Record<string, unknown>> {
+  static async assignRoleToUser(
+    userId: string,
+    roleId: string,
+  ): Promise<Record<string, unknown>> {
     return UserRoleRepository.assign(userId, roleId);
   }
 
@@ -135,7 +149,7 @@ class UserService {
     email: string,
     password: string,
     name: string,
-    status?: string,
+    roles?: string[],
   ): Promise<Record<string, unknown>> {
     const existingUser = await UserRepository.exists({ email });
 
@@ -144,28 +158,45 @@ class UserService {
     }
     const hashedPassword = await Argon.hashPassword(password);
 
-    return UserRepository.create({
+    const user = (await UserRepository.create({
       email,
       password: hashedPassword,
       name,
-      ...(status && { status }),
-    });
+    })) as { id: string };
+
+    if (roles && roles.length > 0) {
+      await Promise.all(
+        roles.map((roleId) => UserRoleRepository.assign(user.id, roleId)),
+      );
+    }
+
+    return UserRepository.findWithRoles(user.id) as Promise<Record<string, unknown>>;
   }
 
   static async getUsers(
-    page: number,
-    limit: number,
+    page: number = 1,
+    limit: number = 10,
     name?: string,
     status?: string,
   ): Promise<Record<string, unknown>> {
-    const { page: p, limit: l } = PaginationUtils.getPaginationParams({
-      page: String(page),
-      limit: String(limit),
+    const searchParams = {
+      ...(name && { name }),
+      ...(status && { status }),
+    };
+
+    return UserRepository.findAll(page, limit, searchParams, {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
-    const searchParams: Record<string, unknown> = {};
-    if (name) searchParams.name = name;
-    if (status) searchParams.status = status;
-    return UserRepository.findAll(p, l, searchParams, { orderBy: { createdAt: 'desc' } });
   }
 
   static async getUserById(id: string): Promise<Record<string, unknown> | null> {
@@ -185,12 +216,19 @@ class UserService {
 
   // ─── User Auth ────────────────────────────────────────────────────────────
 
-  static async login(email: string, password: string): Promise<{ authToken: string; id: string }> {
+  static async login(
+    email: string,
+    password: string,
+  ): Promise<{ authToken: string; id: string }> {
     const user = await UserRepository.findByEmail(email);
     if (!user) {
       throw new Error('Invalid email or password');
     }
-    if (user.status === 'INACTIVE' || user.status === 'BLOCK' || user.status === 'DELETED') {
+    if (
+      user.status === 'INACTIVE' ||
+      user.status === 'BLOCK' ||
+      user.status === 'DELETED'
+    ) {
       throw new Error('Account is not active');
     }
     const isValid = await Argon.verifyPassword(password, user.password);
@@ -204,9 +242,16 @@ class UserService {
     const permissionSets = await Promise.all(
       userRoles.map((ur) => RolePermissionRepository.findByRoleId(ur.roleId)),
     );
-    const permissions = [...new Set(permissionSets.flat().map((rp) => rp.permission.name))];
+    const permissions = [
+      ...new Set(permissionSets.flat().map((rp) => rp.permission.name)),
+    ];
 
-    const subject: { userId: string; email: string; roles: string[]; permissions: string[] } = {
+    const subject: {
+      userId: string;
+      email: string;
+      roles: string[];
+      permissions: string[];
+    } = {
       userId: user.id,
       email: user.email,
       roles,
@@ -225,7 +270,9 @@ class UserService {
       throw new Error('User not found');
     }
     const hashedPassword = await Argon.hashPassword(newPassword);
-    return UserRepository.updateById(user.id as unknown as number, { password: hashedPassword });
+    return UserRepository.updateById(user.id as unknown as number, {
+      password: hashedPassword,
+    });
   }
 }
 

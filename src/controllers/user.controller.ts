@@ -107,8 +107,13 @@ class UserController {
   // ─── User endpoints ───────────────────────────────────────────────────────
 
   static async createUser(req: Request, res: Response): Promise<void> {
-    const { email, password, name, status } = req.body;
-    const result = await UserService.createUser(email, password, name, status);
+    const { email, password, name, roles } = req.body;
+    const result = await UserService.createUser(
+      email as string,
+      password as string,
+      name as string,
+      roles as string[] | undefined,
+    );
     handleSuccess(res, result, 'User created successfully');
   }
 
@@ -132,7 +137,11 @@ class UserController {
   static async updateUser(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const { name, email, status } = req.body;
-    const result = await UserService.updateUser(id, { name, email, status });
+    const result = await UserService.updateUser(id, {
+      name: name as string,
+      email: email as string,
+      status: status as string | undefined,
+    });
     handleSuccess(res, result, 'User updated successfully');
   }
 
