@@ -45,6 +45,17 @@ export interface FindOneOptions {
   select?: Record<string, unknown>;
 }
 
+export interface FindAllMongoOptions {
+  /** Override per-call; falls back to the subclass _fieldMappings. */
+  fieldMappings?: FieldMappings;
+  /** Extra raw MongoDB match conditions appended to $and. */
+  additionalWhere?: Record<string, unknown>[];
+  /** MongoDB sort — use 1 (asc) / -1 (desc). Defaults to createdAt desc. */
+  orderBy?: Record<string, 1 | -1>;
+  /** Custom $project stage. When omitted, _id is hidden and id (string) is added. */
+  project?: Record<string, unknown>;
+}
+
 // ─── Module-level constants ───────────────────────────────────────────────────
 // Compiled once — reused on every date-field check
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -178,6 +189,105 @@ class BaseRepository {
     ]);
 
     return PaginationUtils.getPaginationData<T>(records, total, page, limit);
+  }
+
+  /**
+   * findAllMongo — like findAll but uses aggregateRaw.
+   *
+   * Key difference: `exact` fields are compared via `{ $expr: { $eq: [$toString, value] } }`
+   * so documents stored as either a plain String or a BSON ObjectId are matched correctly,
+   * avoiding the ObjectId / String type-mismatch bug that affects Prisma's typed queries.
+   */
+  static async findAllMongo<T>(
+    page: number,
+    limit: number,
+    searchParams: Record<string, unknown>,
+    {
+      fieldMappings,
+      additionalWhere = [],
+      orderBy = { createdAt: -1 },
+      project,
+    }: FindAllMongoOptions = {},
+  ): Promise<PaginationResult<T>> {
+    const { skip, take } = PaginationUtils.getSkipTake(page, limit);
+    const mappings = fieldMappings ?? this._fieldMappings;
+
+    const matchConditions: Record<string, unknown>[] = [];
+
+    for (const [type, fields] of Object.entries(mappings) as [string, string[]][]) {
+      for (const field of fields) {
+        const value = searchParams[field];
+        if (value === undefined || value === null || value === '') continue;
+
+        switch (type) {
+          case 'exact':
+            // $toString normalises both ObjectId and String storage to a plain string
+            matchConditions.push({
+              $expr: { $eq: [{ $toString: `$${field}` }, String(value)] },
+            });
+            break;
+          case 'text':
+            matchConditions.push({ [field]: { $regex: String(value), $options: 'i' } });
+            break;
+          case 'date':
+            if (typeof value === 'string' && DATE_REGEX.test(value)) {
+              matchConditions.push({
+                [field]: {
+                  $gte: { $date: `${value}T00:00:00.000Z` },
+                  $lte: { $date: `${value}T23:59:59.999Z` },
+                },
+              });
+            }
+            break;
+          case 'numeric':
+          case 'number':
+            matchConditions.push({ [field]: +Number(value) });
+            break;
+        }
+      }
+    }
+
+    for (const cond of additionalWhere) {
+      matchConditions.push(cond);
+    }
+
+    const matchStage = matchConditions.length > 0 ? { $and: matchConditions } : {};
+
+    const dataPipeline: Record<string, unknown>[] = [
+      { $match: matchStage },
+      { $sort: orderBy },
+      { $skip: skip },
+      { $limit: take },
+      ...(project
+        ? [{ $project: project }]
+        : (() => {
+            const m = fieldMappings ?? this._fieldMappings;
+            const addFields: Record<string, unknown> = { id: { $toString: '$_id' } };
+            // Serialize ObjectId fields (exact) and Date fields to plain strings
+            for (const field of m.exact ?? []) {
+              addFields[field] = { $toString: `$${field}` };
+            }
+            for (const field of m.date ?? []) {
+              addFields[field] = { $toString: `$${field}` };
+            }
+            return [{ $addFields: addFields }, { $project: { _id: 0 } }];
+          })()),
+    ];
+
+    const countPipeline = [{ $match: matchStage }, { $count: 'total' }];
+
+    const [docs, countResult] = await Promise.all([
+      this.db.aggregateRaw({ pipeline: dataPipeline }),
+      this.db.aggregateRaw({ pipeline: countPipeline }),
+    ]);
+
+    const total = (countResult as unknown as Array<{ total: number }>)[0]?.total ?? 0;
+    return PaginationUtils.getPaginationData<T>(
+      docs as unknown as T[],
+      total,
+      page,
+      limit,
+    );
   }
 
   static async findAllWithoutPagination<T>({

@@ -16,13 +16,7 @@ class FarmService {
     name?: string,
     address?: string,
   ) {
-    const searchParams: Record<string, unknown> = { consumerId };
-    if (name) searchParams.name = name;
-    if (address) searchParams.address = address;
-    return FarmRepository.findAll<Farm>(page, limit, searchParams, {
-      additionalWhere: {},
-      orderBy: { createdAt: 'desc' },
-    });
+    return FarmRepository.findAllMongo<Farm>(page, limit, { consumerId, name, address });
   }
 
   static async getFarmById(id: string): Promise<Farm> {
