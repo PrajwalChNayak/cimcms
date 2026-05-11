@@ -26,6 +26,11 @@ class MasterController {
 
     handleDataCreation(res, result, 'Master type constants fetched successfully');
   }
+
+  static async getMasterTypeConstantTypes(req: Request, res: Response): Promise<void> {
+    const result = await MasterService.getMasterTypeConstantTypes();
+    handleDataCreation(res, result, 'Master type constant types fetched successfully');
+  }
 }
 
 export default MasterController;

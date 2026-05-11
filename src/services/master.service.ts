@@ -31,10 +31,19 @@ class MasterService {
     if (type) searchParams.type = type;
     if (value) searchParams.value = value;
 
-    return MasterTypeConstantRepository.findAll<MasterTypeConstant>(page, limit, searchParams, {
-      additionalWhere: {},
-      orderBy: { createdAt: 'desc' },
-    });
+    return MasterTypeConstantRepository.findAll<MasterTypeConstant>(
+      page,
+      limit,
+      searchParams,
+      {
+        additionalWhere: {},
+        orderBy: { createdAt: 'desc' },
+      },
+    );
+  }
+
+  static async getMasterTypeConstantTypes(): Promise<string[]> {
+    return await MasterTypeConstantRepository.findDistinctTypes();
   }
 }
 
