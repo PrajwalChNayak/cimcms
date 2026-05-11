@@ -38,6 +38,8 @@ const FarmDetailPage = lazy(() => import("@view/farms/FarmDetailPage.tsx").then(
 const DevicesPage = lazy(() => import("@view/devices/DevicesPage.tsx").then((m) => ({ default: m.DevicesPage })));
 const DeviceDetailPage = lazy(() => import("@view/devices/DeviceDetailPage.tsx").then((m) => ({ default: m.DeviceDetailPage })));
 const SettingsPage = lazy(() => import("@view/settings/SettingsPage.tsx").then((m) => ({ default: m.SettingsPage })));
+const MasterTypeConstantPage = lazy(() => import("@/view/master/MasterTypeConstantPage").then((m) => ({ default: m.MasterTypeConstantPage })));
+const UsersManagementPage = lazy(() => import("@/view/master/UsersManagementPage").then((m) => ({ default: m.UsersManagementPage })));
 
 // Component mapping
 const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
@@ -51,6 +53,8 @@ const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
     DevicesPage,
     DeviceDetailPage,
     SettingsPage,
+    MasterTypeConstantPage,
+    UsersManagementPage,
 };
 
 /**

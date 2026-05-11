@@ -1,4 +1,5 @@
 
+import { useLoginMutation } from "@api/authApi";
 import { setCredentials } from "@store/slices/authSlice";
 import { type FormEvent, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -71,28 +72,29 @@ const SpinnerIcon = () => (
 
 /* ── Login Page ── */
 
-const DEMO_EMAIL = "demo@cultivo.io";
-const DEMO_PASSWORD = "demo1234";
-const DEMO_TOKEN = "demo-token";
-
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // const [login, { isLoading }] = useLoginMutation();
+  const [login, { isLoading }] = useLoginMutation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      //  await login({ email, password }).unwrap();
-      dispatch(setCredentials({ token: DEMO_TOKEN }));
+      const response = await login({ email, password }).unwrap();
+      dispatch(
+        setCredentials({
+          token: response.result.authToken,
+          userId: response.result.id,
+          loginTime: Date.now(),
+        }),
+      );
       navigate("/dashboard", { replace: true });
     } catch (err) {
       const message =
@@ -100,16 +102,6 @@ const LoginPage: React.FC = () => {
         "Invalid email or password. Please try again.";
       setError(message);
     }
-  };
-
-  const handleDemoLogin = async () => {
-    setDemoLoading(true);
-    setEmail(DEMO_EMAIL);
-    setPassword(DEMO_PASSWORD);
-    // Small delay so the user sees the fields fill in
-    await new Promise((r) => setTimeout(r, 600));
-    dispatch(setCredentials({ token: DEMO_TOKEN }));
-    navigate("/dashboard", { replace: true });
   };
 
   return (
@@ -258,30 +250,13 @@ const LoginPage: React.FC = () => {
             {/* Submit */}
             <button
               type="submit"
-              disabled={ demoLoading}
+              disabled={isLoading}
               className="w-full flex items-center justify-center gap-2 rounded-btn py-2.5 text-sm sm:text-base font-semibold text-text-inverted bg-primary hover:bg-primary-light transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
-              {/* {isLoading && <SpinnerIcon />} */}
-              {/* {isLoading ? "Signing in…" : "Sign In"} */}
-              Sign In
-            </button>
-
-            {/* Demo Login */}
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={ demoLoading}
-              className="w-full flex items-center justify-center gap-2 rounded-btn py-2.5 text-sm sm:text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer border border-primary/40 text-primary hover:bg-primary/8"
-            >
-              {demoLoading ? (
-                <><SpinnerIcon />Loading demo…</>
+              {isLoading ? (
+                <><SpinnerIcon />Signing in…</>
               ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-                  </svg>
-                  Try Demo
-                </>
+                "Sign In"
               )}
             </button>
           </form>

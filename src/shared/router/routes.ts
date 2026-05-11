@@ -71,6 +71,20 @@ export const protectedRoutes: RouteConfig[] = [
     permissions: [],
     roles: [],
   },
+  {
+    path: "/master-type-constant",
+    element: "MasterTypeConstantPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
+  {
+    path: "/users",
+    element: "UsersManagementPage",
+    layout: "DashboardLayout",
+    permissions: [],
+    roles: [],
+  },
 ];
 
 // Error routes

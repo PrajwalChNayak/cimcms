@@ -40,6 +40,7 @@ export interface Column<T> {
   header: ReactNode;
   render?: (value: T[keyof T], row: T, rowIdx: number) => ReactNode;
   sortable?: boolean;
+  isSearchable?: boolean;
   width?: number | string;
   align?: Align;
 }
@@ -177,9 +178,10 @@ const ServerSearch = <T extends Record<string, unknown>>({
   columns: Column<T>[];
   onSearch: (queryString: string, params: Record<string, string>) => void;
 }) => {
+  const searchableColumns = columns.filter((c) => c.isSearchable);
   const idRef = useRef(1);
   const [fields, setFields] = useState<SearchField[]>([
-    { id: 0, column: columns[0]?.key ?? "", value: "" },
+    { id: 0, column: searchableColumns[0]?.key ?? "", value: "" },
   ]);
 
   const emit = useCallback((updated: SearchField[]) => {
@@ -201,9 +203,9 @@ const ServerSearch = <T extends Record<string, unknown>>({
 
   const addField = useCallback(() => {
     const usedCols = new Set(fields.map((f) => f.column));
-    const nextCol = columns.find((c) => !usedCols.has(c.key))?.key ?? columns[0]?.key ?? "";
+    const nextCol = searchableColumns.find((c) => !usedCols.has(c.key))?.key ?? searchableColumns[0]?.key ?? "";
     setFields((prev) => [...prev, { id: idRef.current++, column: nextCol, value: "" }]);
-  }, [fields, columns]);
+  }, [fields, searchableColumns]);
 
   const removeField = useCallback((id: number) => {
     setFields((prev) => {
@@ -237,7 +239,7 @@ const ServerSearch = <T extends Record<string, unknown>>({
               onChange={(e) => updateField(field.id, "column", e.target.value)}
               className="appearance-none pl-3 pr-7 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-chikishaa/30 focus:border-chikishaa text-gray-700 cursor-pointer transition-all"
             >
-              {columns.map((col) => (
+              {searchableColumns.map((col) => (
                 <option key={col.key} value={col.key}>
                   {typeof col.header === "string" ? col.header : col.key}
                 </option>
@@ -282,7 +284,7 @@ const ServerSearch = <T extends Record<string, unknown>>({
         </div>
       ))}
 
-      {fields.length < columns.length && (
+      {fields.length < searchableColumns.length && (
         <button type="button" onClick={addField}
           className="inline-flex items-center gap-1 text-xs text-chikishaa hover:opacity-75 font-medium transition-opacity self-start mt-0.5">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -460,8 +462,8 @@ const Pagination: FC<PaginationConfig> = ({
                     : undefined
                 }
                 className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-medium transition-colors ${p === page
-                    ? "shadow-sm ring-1 ring-inset ring-white/20"
-                    : "text-gray-600 hover:bg-gray-100"
+                  ? "shadow-sm ring-1 ring-inset ring-white/20"
+                  : "text-gray-600 hover:bg-gray-100"
                   }`}
               >
                 {p}
@@ -586,23 +588,7 @@ export const DataTable = <T extends Record<string, unknown>>({
 
           {searchable && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-3 flex-wrap">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-xs font-medium text-gray-500 capitalize shrink-0">
-                {searchMode === "client" ? (
-                  <>
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 mr-1.5 text-chikishaa">
-                      <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h4a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                    </svg>
-                    Client search
-                  </>
-                ) : (
-                  <>
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 mr-1.5 text-chikishaa">
-                      <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm14 1a1 1 0 11-2 0 1 1 0 012 0zM2 13a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2zm14 1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-                    </svg>
-                    Server search
-                  </>
-                )}
-              </span>
+             
 
               {searchMode === "client" && (
                 <ClientSearch value={clientSearch} onChange={setClientSearch} />

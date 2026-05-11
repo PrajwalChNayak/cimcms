@@ -34,7 +34,13 @@ const baseQueryWithReauth: BaseQueryFn<
 export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Auth", "Farm", "Device"] as const,
+  tagTypes: [
+    "Auth",
+    "Farm",
+    "Device",
+    "MasterTypeConstant",
+    "Permission",
+  ] as const,
   endpoints: () => ({}),
   keepUnusedDataFor: 60,
   refetchOnMountOrArgChange: 30,

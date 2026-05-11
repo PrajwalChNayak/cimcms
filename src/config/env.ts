@@ -6,7 +6,8 @@ interface EnvConfig {
 
 const DEV_CONFIG: EnvConfig = {
   API_BASE_URL:
-    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1",
+    import.meta.env.VITE_API_BASE_URL ??
+    "https://iotapi.cultivoiot.in/cultivoiot/v1",
   API_TIMEOUT: 30000,
   ENABLE_LOGGING: true,
 };
