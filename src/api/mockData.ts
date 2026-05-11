@@ -14,9 +14,9 @@ export const mockUser: User = {
 export const mockFarms: Farm[] = [
   {
     id: "farm-001",
-    name: "Hacienda Norte",
-    location: "Monterrey, NL",
-    description: "Primary wheat and corn cultivation farm",
+    name: "Mahanadi Krushi Kshetra",
+    location: "Cuttack, Odisha",
+   // description: "Primary paddy and pulse cultivation farm",
     ownerId: "u-001",
     area: "120 ha",
     createdAt: "2023-01-15T08:00:00Z",
@@ -24,9 +24,9 @@ export const mockFarms: Farm[] = [
   },
   {
     id: "farm-002",
-    name: "Rancho del Valle",
-    location: "Culiacán, SIN",
-    description: "Tomato and pepper greenhouse operations",
+    name: "Satabdi Tarkari Bagicha",
+    location: "Jagatsinghpur, Odisha",
+   // description: "Vegetable and chili cultivation operations",
     ownerId: "u-001",
     area: "45 ha",
     createdAt: "2023-06-20T08:00:00Z",
@@ -34,9 +34,9 @@ export const mockFarms: Farm[] = [
   },
   {
     id: "farm-003",
-    name: "Finca Los Olivos",
-    location: "Ensenada, BC",
-    description: "Olive grove and vineyard management",
+    name: "Prabhati Phala Bagicha",
+    location: "Cuttack, Odisha",
+   // description: "Mango orchard and coconut grove management",
     ownerId: "u-001",
     area: "80 ha",
     createdAt: "2024-02-10T08:00:00Z",
@@ -44,9 +44,9 @@ export const mockFarms: Farm[] = [
   },
   {
     id: "farm-004",
-    name: "Granja Coastal",
-    location: "Veracruz, VER",
-    description: "Aquaculture and coastal vegetation",
+    name: "Chilika Jalakrushi Kheta",
+    location: "Jagatsinghpur, Odisha",
+   // description: "Aquaculture and coastal prawn cultivation",
     ownerId: "u-001",
     area: "30 ha",
     createdAt: "2024-08-01T08:00:00Z",
@@ -120,8 +120,8 @@ export const mockDevices: Device[] = [
   },
   {
     id: "dev-005",
-    name: "Soil Moisture SM-01",
-    type: "soil_moisture",
+    name: " Moisture M-01",
+    type: "moisture",
     farmId: "farm-001",
     status: "online",
     lastReading: { value: 68, unit: "%", timestamp: "2026-05-09T10:40:00Z" },
@@ -215,8 +215,8 @@ export const mockDevices: Device[] = [
   },
   {
     id: "dev-011",
-    name: "Soil Moisture SM-02",
-    type: "soil_moisture",
+    name: "Moisture  M-02",
+    type: "Moisture",
     farmId: "farm-003",
     status: "online",
     lastReading: { value: 52, unit: "%", timestamp: "2026-05-09T10:42:00Z" },
@@ -229,7 +229,7 @@ export const mockDevices: Device[] = [
   },
   {
     id: "dev-012",
-    name: "Irrigation Valve IV-01",
+    name: "Pump IV-01",
     type: "irrigation_valve",
     farmId: "farm-003",
     status: "error",
@@ -305,11 +305,11 @@ export const mockHistoricalData: Record<string, ReadingPoint[]> = {
   "dev-001": generateHistory(12, 24, 4), // wind speed
   "dev-002": generateHistory(22, 24, 2), // water temp
   "dev-004": generateHistory(30, 24, 10), // flow meter
-  "dev-005": generateHistory(68, 24, 5), // soil moisture
+  "dev-005": generateHistory(68, 24, 5), // Moisture
   "dev-006": generateHistory(8, 24, 3), // wind speed
   "dev-008": generateHistory(34, 24, 8), // flow meter
   "dev-010": generateHistory(25, 24, 3), // weather station temp
-  "dev-011": generateHistory(52, 24, 6), // soil moisture
+  "dev-011": generateHistory(52, 24, 6), // Moisture
   "dev-013": generateHistory(29, 24, 2), // water temp
   "dev-014": generateHistory(18, 24, 4), // flow meter
 };
@@ -353,7 +353,7 @@ export const mockNotifications: Notification[] = [
     farmId: "farm-003",
     title: "Device Error",
     message:
-      "Irrigation Valve IV-01 is reporting errors. Battery critically low.",
+      "Pump IV-01 is reporting errors. Battery critically low.",
     severity: "warning",
     read: false,
     timestamp: "2026-05-09T07:00:00Z",
