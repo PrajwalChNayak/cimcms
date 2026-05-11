@@ -4,7 +4,7 @@ import { selectNotifications } from "@store/slices/notificationsSlice";
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import DataTableDemo from "./DataTableDemo_Version2";
+// import DataTableDemo from "./DataTableDemo_Version2";
 
 /* ═══════════════════════════════════════════
    Mock Data — replace with real API later
