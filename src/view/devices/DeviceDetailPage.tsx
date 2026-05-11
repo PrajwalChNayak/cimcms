@@ -22,7 +22,7 @@ const chartColorMap: Record<string, string> = {
     wind_sensor: "#38bdf8",
     water_temp_sensor: "#60a5fa",
     water_flow_meter: "#22d3ee",
-    soil_moisture: "#34d399",
+    moisture: "#34d399",
     weather_station: "#fbbf24",
     irrigation_valve: "#2dd4bf",
 };
@@ -179,8 +179,8 @@ export const DeviceDetailPage = () => {
                             </div>
                             <div
                                 className={`text-center py-3 rounded-btn text-sm font-semibold ${device.isLocked
-                                        ? "bg-primary/10 text-primary"
-                                        : "bg-emerald-50 text-emerald-700"
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-emerald-50 text-emerald-700"
                                     }`}
                             >
                                 <svg className="w-5 h-5 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

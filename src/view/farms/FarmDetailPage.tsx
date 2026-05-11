@@ -15,7 +15,7 @@ const DEVICE_TYPES: DeviceType[] = [
     "water_temp_sensor",
     "door_lock",
     "water_flow_meter",
-    "soil_moisture",
+    "moisture",
     "weather_station",
     "irrigation_valve",
 ];
@@ -175,8 +175,8 @@ export const FarmDetailPage = () => {
                             type="button"
                             onClick={() => setStatusFilter(s)}
                             className={`px-3 py-1.5 rounded-btn text-xs font-medium capitalize transition-colors cursor-pointer border ${statusFilter === s
-                                    ? "bg-primary text-text-inverted border-primary"
-                                    : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
+                                ? "bg-primary text-text-inverted border-primary"
+                                : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
                                 }`}
                         >
                             {s}

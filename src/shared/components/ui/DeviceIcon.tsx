@@ -14,7 +14,7 @@ const iconPaths: Record<DeviceType, string> = {
         "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
     water_flow_meter:
         "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
-    soil_moisture:
+    moisture:
         "M12 21a8 8 0 01-8-8c0-4.42 8-12 8-12s8 7.58 8 12a8 8 0 01-8 8z",
     weather_station:
         "M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z",
@@ -29,7 +29,7 @@ const colorMap: Record<DeviceType, string> = {
     water_temp_sensor: "text-blue-400",
     door_lock: "text-violet-400",
     water_flow_meter: "text-cyan-400",
-    soil_moisture: "text-emerald-400",
+    moisture: "text-emerald-400",
     weather_station: "text-amber-400",
     irrigation_valve: "text-teal-400",
     unknown: "text-slate-400",
@@ -52,7 +52,7 @@ export const deviceTypeLabel: Record<DeviceType, string> = {
     water_temp_sensor: "Water Temperature",
     door_lock: "Door Lock",
     water_flow_meter: "Water Flow Meter",
-    soil_moisture: "Soil Moisture",
+    moisture: "Moisture",
     weather_station: "Weather Station",
     irrigation_valve: "Irrigation Valve",
     unknown: "Unknown Device",
@@ -63,7 +63,7 @@ export const deviceTypeBg: Record<DeviceType, string> = {
     water_temp_sensor: "bg-blue-500/10",
     door_lock: "bg-violet-500/10",
     water_flow_meter: "bg-cyan-500/10",
-    soil_moisture: "bg-emerald-500/10",
+    moisture: "bg-emerald-500/10",
     weather_station: "bg-amber-500/10",
     irrigation_valve: "bg-teal-500/10",
     unknown: "bg-slate-500/10",

@@ -23,7 +23,7 @@ const DEVICE_TYPES: Array<DeviceType | "all"> = [
     "water_temp_sensor",
     "door_lock",
     "water_flow_meter",
-    "soil_moisture",
+    "moisture",
     "weather_station",
     "irrigation_valve",
 ];
@@ -109,8 +109,8 @@ export const DevicesPage = () => {
                             type="button"
                             onClick={() => dispatch(setDevicesFilterStatus(s))}
                             className={`px-3 py-1 rounded-btn text-xs font-medium capitalize transition-colors cursor-pointer border ${filterStatus === s
-                                    ? "bg-primary text-text-inverted border-primary"
-                                    : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
+                                ? "bg-primary text-text-inverted border-primary"
+                                : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
                                 }`}
                         >
                             {s}
@@ -127,8 +127,8 @@ export const DevicesPage = () => {
                             type="button"
                             onClick={() => dispatch(setDevicesFilterType(t))}
                             className={`px-3 py-1 rounded-btn text-xs font-medium capitalize transition-colors cursor-pointer border ${filterType === t
-                                    ? "bg-primary text-text-inverted border-primary"
-                                    : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
+                                ? "bg-primary text-text-inverted border-primary"
+                                : "bg-surface text-text-secondary hover:bg-primary/5 hover:text-text-primary border-border"
                                 }`}
                         >
                             {t === "all" ? "All Types" : deviceTypeLabel[t as DeviceType]}

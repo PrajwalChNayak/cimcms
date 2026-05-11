@@ -6,7 +6,7 @@ export type DeviceType =
   | "water_temp_sensor"
   | "door_lock"
   | "water_flow_meter"
-  | "soil_moisture"
+  | "moisture"
   | "weather_station"
   | "irrigation_valve"
   | "unknown";
