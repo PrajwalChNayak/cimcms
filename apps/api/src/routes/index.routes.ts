@@ -3,6 +3,7 @@ import { NextFunction, Request, Response, Router } from "express";
 import setUpAuthRoutes from "@routes/modules/auth.routes";
 import setUpCommandRoutes from "@routes/modules/command.routes";
 import setUpDeviceRoutes from "@routes/modules/device.routes";
+import setUpDeviceReadRoutes from "@routes/modules/deviceread.routes";
 import setUpFarmRoutes from "@routes/modules/farm.routes";
 import setUpMasterRouters from "@routes/modules/master.routers";
 import setUpUserRoutes from "@routes/modules/user.routes";
@@ -28,6 +29,7 @@ setUpAuthRoutes(apiRoutes);
 setUpFarmRoutes(apiRoutes);
 setUpDeviceRoutes(apiRoutes);
 setUpCommandRoutes(apiRoutes);
+setUpDeviceReadRoutes(apiRoutes);
 setUpMasterRouters(apiRoutes);
 // Apply async error-catching wrapper to every registered route handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

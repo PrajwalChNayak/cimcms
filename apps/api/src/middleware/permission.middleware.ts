@@ -15,7 +15,8 @@ export function requirePermission(...permissions: string[]) {
     if (missing.length > 0) {
       res.status(403).json({
         success: false,
-        message: 'Forbidden: missing permission(s)',
+        errorCode: 'FORBIDDEN',
+      message: 'Forbidden: missing permission(s)',
         missing,
       });
       return;

@@ -19,6 +19,7 @@ export default defineConfig({
       "@security/": `${src("security")}/`,
       "@services/": `${src("services")}/`,
       "@utils/": `${src("utils")}/`,
+      "@test/": `${path.resolve(__dirname, "test")}/`,
     },
   },
   test: {

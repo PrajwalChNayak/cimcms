@@ -1,6 +1,7 @@
 import requestId from "@middleware/requestid.middleware";
 import errorHandler from "@middleware/errorhandler.middleware";
 import apiRoute from "@routes/index.routes";
+import healthRouter from "@routes/health.routes";
 import { apiReference } from "@scalar/express-api-reference";
 import { generalLimiter } from "@security/limiter.security";
 import { NotFoundError } from "@utils/errors/custom.errors";
@@ -22,7 +23,7 @@ import yaml from "yamljs";
  *
  * Middleware order (T0.4):
  *   trust proxy -> requestId -> api docs -> helmet -> cors -> json
- *   -> cookies -> general rate limit -> routes -> 404 -> error handler
+ *   -> cookies -> /health (unlimited) -> general rate limit -> routes -> 404 -> error handler
  */
 export const createApp = (): Express => {
   const app = express();
@@ -72,6 +73,8 @@ export const createApp = (): Express => {
   app.use(cors({ origin: process.env.APP_BASE_URL, credentials: true }));
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
+  // Probes: root level, not authenticated, not rate limited.
+  app.use("/health", healthRouter);
   app.use(generalLimiter);
 
   app.use(`/${process.env.MAIN_ROUTE}`, apiRoute);
