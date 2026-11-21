@@ -17,17 +17,17 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T1.1 | packages/contracts | done | 2026-11-21 | see `git log --grep T1.1` | 37/37 tests, 6 JSON Schemas; Zod 4.6.7 (Q2 default); see D9 |
 | T0.4 | API: middleware order, proxy trust, CORS, rate limits | done | 2026-11-21 | see `git log --grep T0.4` | needs senior review; live curl 429 not run (no Mongo then), proven by supertest; see D10 |
 | T0.5 | API: fix known code gaps | done | 2026-11-21 | same commit as T0.4 | typecheck 0 errors; lint 0 errors/25 warnings; see D10 |
-| T0.6 | API: request ID and Zod validation middleware | todo | | | |
+| T0.6 | API: request ID and Zod validation middleware | done | 2026-11-21 | see `git log --grep T0.6` | 6 tests; one commit with T2.4, T2.5 |
 | T0.7 | API: test setup | done | 2026-11-21 | see `git log --grep T0.7` | 5/5 tests, no Docker |
 | T0.8 | Web: test setup | done | 2026-11-21 | 7499d64 | `npm test -w apps/web` 1/1 pass |
 | T0.9 | CI | done-unverified | 2026-11-21 | see `git log --grep T0.9` | no git remote: workflow not run; full local chain to be run after Phase 2 batch (see D11) |
 | T1.2 | Dev infrastructure (Docker Compose) | done | 2026-11-21 | d1e8aa3 | rs0 ok; ACL verified; Prisma connect not tested; see D8 |
 | T1.3 | Device simulator tools/device-sim | done | 2026-11-21 | see `git log --grep T1.3` | 14/14 tests; manual run vs dev broker not done; see D9 |
-| T2.1 | Prisma models and time-series init | todo | | | |
-| T2.2 | RBAC and device seed | todo | | | |
+| T2.1 | Prisma models and time-series init | done | 2026-11-21 | see `git log --grep T2.1` | db push ok to scratch db `cimcms_t21check` on dev Mongo; telemetry tests pass; see D14 |
+| T2.2 | RBAC and device seed | done | 2026-11-21 | same commit as T2.1 | 5 seed tests; see D14 |
 | T2.3 | Auth: short access token, refresh cookie, /user/me | todo | | | Needs senior review |
-| T2.4 | Device driver registry (API side) | todo | | | |
-| T2.5 | MQTT client and dispatcher | todo | | | |
+| T2.4 | Device driver registry (API side) | done | 2026-11-21 | same commit as T0.6 | 5 tests |
+| T2.5 | MQTT client and dispatcher | done | 2026-11-21 | same commit as T0.6 | 8 tests (aedes); not yet wired into app.ts (T2.6/T2.8); see D13 |
 | T2.6 | Ingest service and device state | todo | | | Needs senior review |
 | T2.7 | Realtime gateway (Socket.IO) | todo | | | |
 | T2.8 | Command service, routes, timeout job | todo | | | Needs senior review |
@@ -86,6 +86,9 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **D11 (T0.9):** `.github/workflows/ci.yml` written (npm ci, build contracts, prisma generate, lint, typecheck, test, build). No remote exists, so CI is not verified remotely. Web lint baseline (17 errors) relaxed to warnings in `apps/web/eslint.config.js` (no-explicit-any, unused-vars, react-hooks compiler rules, etc.) so CI gates on new errors; tighten later.
 
 - **D12 (T3.1-T3.3):** T3.1-T3.3 share one commit. Real web app is smaller than `UI_ARCHITECTURE.md` (pages in `view/`, `viewmodels/`, `repository/`; no `shared/api`, no `usePaginationParams`). Details: `apiSchemas.ts` in `shared/utils/`; persist whitelist now `['ui']` (token no longer in localStorage); `RoleGuard`/`ProtectedRoute` rewritten (all listed permissions required, any listed role); `authSlice` state `{accessToken,user}`; detail route param is physical `deviceId`; old mock device repository and device pages deleted (farm mock links to `/devices/<mockId>` show "Device not found"); `relayChangeDtoSchema` defined locally in `deviceApi.ts` (contracts has none; check at T2.9); assumed API response bodies: login/refresh `{accessToken,user}` in the envelope `result`, `/user/me` user object in `result`; telemetry plain array in `result`. Socket client stops after 3 consecutive auth failures. `ledText.ts` created early (section 9 texts). Link to `/devices/:deviceId/control` is 404 until T3.4. Manual "login, hard reload" check not done (needs API): T3.8 covers it.
+
+- **D13 (T0.6/T2.4/T2.5):** `AppError` gained optional `details`; `ValidationError(message, errorCode="VALIDATION_ERROR", details?)`. Validate issues shaped `{in,path,message,code}`; headers validated but not replaced. Dispatcher reads device type from `Device.deviceType` (cached 60 s); drops on type mismatch with topic. `MqttClient.connect()` resolves on first connect; `shutdown()` and `installShutdownHooks(after?)` exist but are NOT yet called from `app.ts`: wire in T2.6/T2.8 (`startMqtt()` after `initTimeseries()`). Empty (retained-clear) payloads reach ingest: T2.6 must treat empty status payload as no-op. `ingest.service.ts` is a stub until T2.6.
+- **D14 (T2.1/T2.2):** Prisma enums written multi-line (one-line form rejected). `app.ts` has `bootstrap()` calling `initTimeseries()` before listen. Device seeding sets both `type` and `deviceType` (existing schema requires `deviceType`). Permission mapping: existing `DEVICE_READ` reused; legacy `DEVICE_CREATE/UPDATE/DELETE` kept (not equivalent to new ones); `DEVICE_MANAGE` separate. New role TECHNICIAN. VIEWER now has exactly the 6 matrix permissions (legacy `FARM_READ`, `CONSUMER_READ`, `MASTER_READ` removed from VIEWER; sync on reseed). Fixed `test/setup/mongo.ts` hang: `execFileSync` for `prisma db push` blocked mongod stdout; now async `execFile`. `BOOTSTRAP_ADMIN_PASSWORD` not in `.env.example` (add in a later task).
 
 ## Questions for owner
 

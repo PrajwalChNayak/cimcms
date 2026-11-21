@@ -19,6 +19,7 @@
     "prisma:studio": "npx prisma studio",
     "prisma:format": "prisma format",
     "seed": "tsx src/models/seed.ts",
+    "seed:admin": "tsx src/models/seed-admin.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",

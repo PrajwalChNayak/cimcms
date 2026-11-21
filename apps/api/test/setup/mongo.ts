@@ -1,6 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+
+const execFileAsync = promisify(execFile);
 
 let replSet: MongoMemoryReplSet | undefined;
 
@@ -17,7 +20,9 @@ export async function setup(): Promise<void> {
   process.env.DATABASE_URL = uri.toString();
 
   const apiDir = path.resolve(__dirname, "..", "..");
-  execFileSync(
+  // Async on purpose: a blocking execFileSync stops this process from draining
+  // mongod's stdout pipe, mongod then stalls on log writes and db push hangs.
+  await execFileAsync(
     process.execPath,
     [
       path.resolve(apiDir, "..", "..", "node_modules", "prisma", "build", "index.js"),
@@ -30,7 +35,6 @@ export async function setup(): Promise<void> {
     {
       cwd: apiDir,
       env: { ...process.env, DATABASE_URL: uri.toString() },
-      stdio: "pipe",
     },
   );
 }

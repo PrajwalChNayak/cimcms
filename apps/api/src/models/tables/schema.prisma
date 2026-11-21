@@ -114,3 +114,143 @@ enum CommonStatus {
   DELETED
   BLOCK
 }
+
+// ─── CIMCMS device platform (plan section 6) ─────────────────────────────────
+enum Liveness {
+  UNKNOWN
+  ONLINE
+  STALE
+  OFFLINE
+}
+
+enum CommandStatus {
+  PENDING
+  PUBLISHED
+  ACCEPTED
+  EXECUTED
+  REJECTED
+  EXPIRED
+  DUPLICATE
+  FAILED
+  TIMEOUT
+  PUBLISH_FAILED
+}
+
+model DeviceStatus {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId        String    @unique
+  type            String
+  liveness        Liveness  @default(UNKNOWN)
+  lastSeenAt      DateTime?
+  lastStatusAt    DateTime?
+  lastTelemetryAt DateTime?
+  firmwareVersion String?
+  bootId          String?
+  lastSeq         Int?
+  mode            String?
+  modeStatus      String?
+  simulationMode  Boolean?
+  relayStates     Boolean[]
+  relayOnCount    Int       @default(0)
+  connectivity    Json?
+  rtc             Json?
+  configVersion   Int?
+  autoReady       Boolean?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+type CommandAck {
+  result        String
+  reason        String?
+  reportedState String?
+  receivedAt    DateTime
+  deviceTs      DateTime?
+}
+
+model Command {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  commandId      String        @unique // UUID on the wire
+  idempotencyKey String        @unique // client header value, or = commandId
+  deviceId       String
+  action         String
+  params         Json
+  source         String // web | schedule | experiment | system
+  issuedById     String?       @db.ObjectId
+  issuedByEmail  String?
+  requestId      String?
+  status         CommandStatus @default(PENDING)
+  reason         String?
+  lateResult     String? // device result that arrived after TIMEOUT
+  issuedAt       DateTime
+  expiresAt      DateTime
+  publishedAt    DateTime?
+  completedAt    DateTime?
+  simulation     Boolean?
+  acks           CommandAck[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([deviceId, issuedAt])
+  @@index([status, expiresAt])
+}
+
+model DeviceEvent {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId   String
+  type       String // DEVICE_EVENT_TYPES or BACKEND_EVENT_TYPES
+  origin     String // DEVICE | BACKEND
+  data       Json
+  deviceTs   DateTime?
+  receivedAt DateTime  @default(now())
+
+  @@index([deviceId, receivedAt])
+  @@index([type, receivedAt])
+}
+
+model RelayStateChange {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId   String
+  relay      Int
+  state      Boolean
+  source     String // RELAY_CHANGE_SOURCES
+  commandId  String?
+  simulation Boolean
+  at         DateTime
+
+  @@index([deviceId, relay, at])
+}
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorId    String?  @db.ObjectId
+  actorEmail String?
+  actorType  String // USER | SYSTEM
+  action     String // LOGIN_SUCCEEDED, LOGIN_FAILED, COMMAND_SUBMITTED, ...
+  entity     String
+  entityId   String?
+  data       Json? // never passwords, tokens, secrets
+  ip         String?
+  requestId  String?
+  at         DateTime @default(now())
+
+  @@index([at])
+  @@index([actorId, at])
+  @@index([entity, entityId])
+}
+
+model RefreshToken {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @db.ObjectId
+  tokenHash      String    @unique // sha256 hex of the opaque cookie value
+  familyId       String
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  replacedByHash String?
+  userAgent      String?
+  ip             String?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
