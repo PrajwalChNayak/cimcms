@@ -13,15 +13,15 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | --- | --- | --- | --- | --- | --- |
 | T0.1 | Create monorepo and import existing repos | done | 2026-11-21 | 2a335c7 (initial), 9b45ab5 (api subtree), 2d54d91 (web subtree), docs commit `chore: T0.1 add docs and progress file` | See deviations D1–D4 |
 | T0.2 | npm workspaces | done | 2026-11-21 | see `git log --grep T0.2` | See deviations D5-D6 |
-| T0.3 | Remove committed secrets | todo | | | |
+| T0.3 | Remove committed secrets | in progress | 2026-11-21 | | docker build check pending; see D7 |
 | T1.1 | packages/contracts | todo | | | Runs before T0.4 (execution order) |
 | T0.4 | API: middleware order, proxy trust, CORS, rate limits | todo | | | Needs senior review |
 | T0.5 | API: fix known code gaps | todo | | | |
 | T0.6 | API: request ID and Zod validation middleware | todo | | | |
 | T0.7 | API: test setup | todo | | | |
-| T0.8 | Web: test setup | todo | | | |
+| T0.8 | Web: test setup | done | 2026-11-21 | 7499d64 | `npm test -w apps/web` 1/1 pass |
 | T0.9 | CI | todo | | | |
-| T1.2 | Dev infrastructure (Docker Compose) | todo | | | |
+| T1.2 | Dev infrastructure (Docker Compose) | done | 2026-11-21 | d1e8aa3 | rs0 ok; ACL verified; Prisma connect not tested; see D8 |
 | T1.3 | Device simulator tools/device-sim | todo | | | |
 | T2.1 | Prisma models and time-series init | todo | | | |
 | T2.2 | RBAC and device seed | todo | | | |
@@ -73,7 +73,13 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **D6 (T0.2):** Pre-existing errors left as is (not unrelated-fixed here): `apps/api` typecheck 67 errors (T0.5 must reach zero), `apps/api` lint 55 errors / 39 warnings, `apps/web` lint 17 errors / 2 warnings (react-hooks, no-explicit-any). `apps/api` build (tsup) and `apps/web` build pass. T0.9 CI must deal with the lint baseline (see T0.9 notes).
 - Added `typecheck` script to `apps/web` (`tsc --noEmit -p tsconfig.app.json`). Root `npm install` created one root `package-lock.json`; app lockfiles removed.
 
+- **D7 (T0.3):** Interim `apps/api/Dockerfile` uses `npm install` instead of `npm ci` because app-level lockfiles were removed in T0.2 (root lockfile only). T4.1 rewrites the Dockerfile for repo-root context with `npm ci`. Added `apps/api/.dockerignore` (excludes `.env*` except example). `MAIN_ROUTE` default in `.env.example` is `api/v1` (placeholder; real value was in the untracked local `.env`, not read). Local `.env`, `.env.dev`, `.env.prod` stay on disk, now untracked and git-ignored.
+- **Parallel run (2026-11-21):** at the user's request, independent tasks run in parallel agents on disjoint directories; the parent commits per task.
+
+- **D8 (T1.2):** Mosquitto healthcheck is `pidof mosquitto`. `mosquitto_passwd -c` fails on a pre-created bind-mounted file: README says `touch` then add users without `-c`. On Git Bash for Windows prefix docker commands with `MSYS_NO_PATHCONV=1`. Dev creds live in git-ignored `infra/dev/.dev-credentials.local`. Dev containers left running.
+
 ## Questions for owner
 
 - **Q1 (T0.1, for T0.3):** `apps/api/.env`, `apps/api/.env.dev` and `apps/api/.env.prod` are tracked in Git and are now also in this monorepo's history (imported by the subtree). T0.3 removes them from the index. The secrets themselves must be rotated by a person (HUMAN-ONLY). Do not push this repository to a shared remote before T0.3 and the rotation are done.
+- **Q3 (T0.3, HUMAN-ONLY):** `.env` was committed to Git history. Rotate JWT_SECRET_KEY, SESSION_SECRET_KEY, DATABASE_URL credentials, CLOUD_ACCESS_KEY/CLOUD_SECRET_KEY, MAIL_PASSWORD. History still contains them (monorepo imported it with history); do not push to a shared remote until rotated.
 - **Q2 (T0.1, for T1.1):** Neither `apps/web` nor `apps/api` depends on Zod today, so T1.1 step 1 ("use the same Zod major as apps/web") has no answer in the code. Which Zod major should be used (3 or 4)? Suggested default unless the owner answers: Zod 4 (current major; it has `z.toJSONSchema`, so `zod-to-json-schema` is not needed). Use the same major in `packages/contracts`, `apps/api` and `apps/web` (Zod is approved for all three in plan section 4.2).
