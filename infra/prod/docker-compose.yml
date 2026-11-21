@@ -1,0 +1,86 @@
+# CIMCMS production stack (plan T4.2). Run from infra/prod with an env file, e.g.
+#   cp .env.example .env   (git-ignored; set DOMAIN, CIMCMS_TAG, MAIN_ROUTE)
+#   docker compose up -d
+# Secrets live OUTSIDE the repo in ${CIMCMS_SECRETS_DIR} (default /opt/cimcms/secrets, mode 600):
+#   api.env, mongo.env, mongo-keyfile. See docs/runbooks/deploy.md.
+# D-3: exactly ONE api instance. Never add replicas or pm2 cluster mode.
+name: cimcms
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  web:
+    image: cimcms-web:${CIMCMS_TAG:?set CIMCMS_TAG, e.g. 2025.01.01-1}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN, e.g. cims.example.org}
+      MAIN_ROUTE: ${MAIN_ROUTE:-api/v1}
+      NGINX_ENVSUBST_FILTER: "^(DOMAIN|MAIN_ROUTE)$$"
+    volumes:
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ${CERTBOT_WEBROOT:-/var/www/certbot}:/var/www/certbot:ro
+    depends_on:
+      - api
+    logging: *default-logging
+
+  api:
+    image: cimcms-api:${CIMCMS_TAG:?set CIMCMS_TAG, e.g. 2025.01.01-1}
+    restart: unless-stopped
+    env_file:
+      - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/api.env
+    expose:
+      - "3814"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3814/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      mongo:
+        condition: service_healthy
+    logging: *default-logging
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    # Copy the keyfile inside the container so ownership/mode are right on any host filesystem,
+    # then hand over to the stock entrypoint (which creates the root user on first start).
+    entrypoint:
+      - bash
+      - -c
+      - >-
+        install -m 400 -o mongodb -g mongodb /run/secrets-src/mongo-keyfile /etc/mongo-keyfile
+        && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /etc/mongo-keyfile --bind_ip_all
+    env_file:
+      - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/mongo.env
+    volumes:
+      - mongo-data:/data/db
+      - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/mongo-keyfile:/run/secrets-src/mongo-keyfile:ro
+    # No published ports: reachable only as mongo:27017 on the compose network.
+    healthcheck:
+      # Exit 0 only when this node is PRIMARY. First run: initiates rs0 with member mongo:27017
+      # (not localhost: the api connects from another container).
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin --eval
+          "try{ if(rs.status().myState!==1) quit(1) }catch(e){ rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}); quit(1) }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+    logging: *default-logging
+
+  # minio: intentionally omitted (plan O default: existing upload features unused in this deployment).
+
+volumes:
+  mongo-data:

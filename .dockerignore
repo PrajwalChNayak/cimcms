@@ -1,0 +1,15 @@
+# Root build context for apps/api and apps/web images (docker build -f apps/<app>/Dockerfile .)
+.git
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.local
+infra/dev
+docs
+tools/**
+!tools/*/package.json
+playwright-report
+test-results
