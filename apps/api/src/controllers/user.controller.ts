@@ -1,6 +1,38 @@
-import UserService from '@/services/user.service';
+import UserService, { type AuthMeta } from '@/services/user.service';
 import { handleSuccess } from '@utils/responsehandler/index.utils';
-import { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
+
+const refreshCookieName = (): string => process.env.REFRESH_COOKIE_NAME ?? "cimcms_rt";
+
+// Must equal the path the browser sees (e.g. /api/v1/user/token), or the cookie is never sent.
+const refreshCookiePath = (): string =>
+  process.env.REFRESH_COOKIE_PATH ?? `/${process.env.MAIN_ROUTE ?? "api/v1"}/user/token`;
+
+const refreshCookieBaseOptions = (): CookieOptions => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict",
+  path: refreshCookiePath(),
+});
+
+const setRefreshCookie = (res: Response, token: string): void => {
+  const days = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? "7");
+  res.cookie(refreshCookieName(), token, {
+    ...refreshCookieBaseOptions(),
+    maxAge: days * 24 * 60 * 60 * 1000,
+  });
+};
+
+const readRefreshCookie = (req: Request): string | undefined => {
+  const value = (req.cookies as Record<string, unknown> | undefined)?.[refreshCookieName()];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+};
+
+const authMeta = (req: Request): AuthMeta => ({
+  ip: req.ip ?? null,
+  userAgent: req.header("User-Agent") ?? null,
+  requestId: req.requestId ?? null,
+});
 
 class UserController {
   // ─── Role endpoints ────────────────────────────────────────────────────────
@@ -169,8 +201,34 @@ class UserController {
 
   static async login(req: Request, res: Response): Promise<void> {
     const { email, password } = req.body;
-    const result = await UserService.login(email as string, password as string);
-    handleSuccess(res, result, 'Login successful');
+    const { accessToken, refreshToken, user } = await UserService.login(
+      email as string,
+      password as string,
+      authMeta(req),
+    );
+    setRefreshCookie(res, refreshToken);
+    // The refresh token is never in the body.
+    handleSuccess(res, { accessToken, user }, "Login successful");
+  }
+
+  static async refresh(req: Request, res: Response): Promise<void> {
+    const { accessToken, refreshToken, user } = await UserService.refresh(
+      readRefreshCookie(req),
+      authMeta(req),
+    );
+    setRefreshCookie(res, refreshToken);
+    handleSuccess(res, { accessToken, user }, "Token refreshed");
+  }
+
+  static async logout(req: Request, res: Response): Promise<void> {
+    await UserService.logout(readRefreshCookie(req), authMeta(req));
+    res.clearCookie(refreshCookieName(), refreshCookieBaseOptions());
+    handleSuccess(res, null, "Logged out");
+  }
+
+  static async me(req: Request, res: Response): Promise<void> {
+    const user = await UserService.getCurrentUser(req.subject?.userId as string);
+    handleSuccess(res, user, "Current user fetched successfully");
   }
 
   static async resetPassword(req: Request, res: Response): Promise<void> {

@@ -20,8 +20,8 @@ describe("POST /user/login", () => {
       .send({ email: user.email, password: user.password });
 
     expect(res.status).toBe(200);
-    expect(res.body.result.id).toBe(user.id);
-    expect(typeof res.body.result.authToken).toBe("string");
+    expect(res.body.result.user.id).toBe(user.id);
+    expect(typeof res.body.result.accessToken).toBe("string");
   });
 
   it("returns 401 for a wrong password", async () => {

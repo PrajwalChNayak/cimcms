@@ -1,10 +1,16 @@
 import UserController from '@/controllers/user.controller';
 import authenticateToken from '@/middleware/auth.middleware';
+import requireAppOrigin from '@/middleware/origin.middleware';
 import { requireRole } from '@/middleware/permission.middleware';
 import { loginLimiter } from '@/security/limiter.security';
 import { Router } from 'express';
 
 export default (router: Router): void => {
+  // Registered before /user/:id so "me" and "token" are not read as ids.
+  router.post('/user/token/refresh', requireAppOrigin, UserController.refresh);
+  router.post('/user/token/logout', requireAppOrigin, UserController.logout);
+  router.get('/user/me', authenticateToken, UserController.me);
+
   router.post('/user/role', authenticateToken, UserController.createUserRole);
   router.get('/user/role', authenticateToken, UserController.getUserRoles);
   router.put('/user/role/:id', authenticateToken, UserController.updateUserRole);

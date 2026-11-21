@@ -36,8 +36,8 @@ export async function createUserWithRole(
   });
   await UserRoleRepository.assign(user.id, roleRecord.id);
 
-  const { authToken } = await UserService.login(email, password);
-  return { id: user.id, email, password, role, token: authToken };
+  const { accessToken } = await UserService.login(email, password);
+  return { id: user.id, email, password, role, token: accessToken };
 }
 
 /** Removes everything created by tests (collections stay). */

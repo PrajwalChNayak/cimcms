@@ -8,8 +8,31 @@ import UserRepository from '@repositories/user.repository';
 import UserRoleRepository from '@repositories/userrole.repository';
 import { Constants } from '@utils/constant.utils';
 import PaginationUtils, { type PaginationResult } from '@utils/pagination.utils';
-import { AuthenticationError } from '@utils/errors/custom.errors';
+import { AppError, AuthenticationError } from '@utils/errors/custom.errors';
+import AuditService from '@/services/audit.service';
+import RefreshTokenRepository from '@repositories/refreshtoken.repository';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+
+export interface CurrentUserDto {
+  id: string;
+  email: string;
+  name?: string;
+  roles: string[];
+  permissions: string[];
+}
+
+export interface AuthMeta {
+  ip?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+}
+
+export const hashRefreshToken = (token: string): string =>
+  createHash('sha256').update(token).digest('hex');
+
+export const refreshTtlMs = (): number =>
+  Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7') * 24 * 60 * 60 * 1000;
 
 
 const userImageField = (ownerId?: number): FieldNameDetail[] => [
@@ -216,52 +239,203 @@ class UserService {
 
   // ─── User Auth ────────────────────────────────────────────────────────────
 
-  static async login(
-    email: string,
-    password: string,
-  ): Promise<{ authToken: string; id: string }> {
-    const user = await UserRepository.findByEmail(email);
-    if (!user) {
-      throw new AuthenticationError('Invalid email or password');
-    }
-    if (
-      user.status === 'INACTIVE' ||
-      user.status === 'BLOCK' ||
-      user.status === 'DELETED'
-    ) {
-      throw new AuthenticationError('Account is not active');
-    }
-    const isValid = await Argon.verifyPassword(password, user.password);
-    if (!isValid) {
-      throw new AuthenticationError('Invalid email or password');
-    }
-
-    // Load roles + permissions once at login and bake them into the token
+  /** Loads roles and permissions from the DB (never from a token). */
+  private static async loadCurrentUser(user: User): Promise<CurrentUserDto> {
     const userRoles = await UserRoleRepository.findByUserId(user.id);
-    const roles = userRoles.map((ur) => ur.role.name);
+    const roles = [...new Set(userRoles.map((ur) => ur.role.name))];
     const permissionSets = await Promise.all(
       userRoles.map((ur) => RolePermissionRepository.findByRoleId(ur.roleId)),
     );
     const permissions = [
       ...new Set(permissionSets.flat().map((rp) => rp.permission.name)),
     ];
-
-    const subject: {
-      userId: string;
-      email: string;
-      roles: string[];
-      permissions: string[];
-    } = {
-      userId: user.id,
+    return {
+      id: user.id,
       email: user.email,
+      ...(user.name ? { name: user.name } : {}),
       roles,
       permissions,
     };
+  }
 
-    const authToken = jwt.sign(subject, process.env.JWT_SECRET_KEY as string, {
-      expiresIn: '30d',
+  private static signAccessToken(me: CurrentUserDto): string {
+    return jwt.sign(
+      {
+        userId: me.id,
+        email: me.email,
+        roles: me.roles,
+        permissions: me.permissions,
+        typ: 'access',
+      },
+      process.env.JWT_SECRET_KEY as string,
+      { expiresIn: (process.env.ACCESS_TOKEN_TTL ?? '15m') as jwt.SignOptions['expiresIn'] },
+    );
+  }
+
+  private static isActive(user: User): boolean {
+    return !(
+      user.status === 'INACTIVE' ||
+      user.status === 'BLOCK' ||
+      user.status === 'DELETED'
+    );
+  }
+
+  /** Creates a refresh token (opaque, 32 random bytes); only its sha256 is stored. */
+  private static async issueRefreshToken(
+    userId: string,
+    familyId: string,
+    meta: AuthMeta,
+  ): Promise<string> {
+    const refreshToken = randomBytes(32).toString('base64url');
+    await RefreshTokenRepository.create({
+      userId,
+      tokenHash: hashRefreshToken(refreshToken),
+      familyId,
+      expiresAt: new Date(Date.now() + refreshTtlMs()),
+      revokedAt: null,
+      replacedByHash: null,
+      userAgent: meta.userAgent ?? null,
+      ip: meta.ip ?? null,
     });
-    return { authToken, id: user.id };
+    return refreshToken;
+  }
+
+  static async login(
+    email: string,
+    password: string,
+    meta: AuthMeta = {},
+  ): Promise<{ accessToken: string; refreshToken: string; user: CurrentUserDto }> {
+    const fail = async (message: string, reason: string): Promise<never> => {
+      // Audit holds the email only, never the password.
+      await AuditService.record({
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        actorEmail: typeof email === 'string' ? email : null,
+        actorType: 'SYSTEM',
+        data: { reason },
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+      throw new AuthenticationError(message);
+    };
+
+    const user = await UserRepository.findByEmail(email);
+    if (!user) {
+      return fail('Invalid email or password', 'UNKNOWN_USER');
+    }
+    if (!UserService.isActive(user)) {
+      return fail('Account is not active', 'INACTIVE');
+    }
+    const isValid = await Argon.verifyPassword(password, user.password);
+    if (!isValid) {
+      return fail('Invalid email or password', 'BAD_PASSWORD');
+    }
+
+    const me = await UserService.loadCurrentUser(user);
+    const accessToken = UserService.signAccessToken(me);
+    const refreshToken = await UserService.issueRefreshToken(user.id, randomUUID(), meta);
+    await AuditService.record({
+      action: 'LOGIN_SUCCEEDED',
+      entity: 'User',
+      entityId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+    return { accessToken, refreshToken, user: me };
+  }
+
+  /**
+   * Rotates a refresh token. Reuse of an already-revoked token kills the whole
+   * family (token theft signal). Roles and permissions are reloaded from the DB.
+   */
+  static async refresh(
+    presentedToken: string | undefined,
+    meta: AuthMeta = {},
+  ): Promise<{ accessToken: string; refreshToken: string; user: CurrentUserDto }> {
+    const reject = (message = 'Invalid or expired refresh token'): never => {
+      throw new AppError(message, 401, 'UNAUTHENTICATED');
+    };
+    const auditReuse = async (
+      record: { id: string; userId: string; familyId: string },
+      race: boolean,
+    ): Promise<void> => {
+      await RefreshTokenRepository.revokeFamily(record.familyId);
+      await AuditService.record({
+        action: 'REFRESH_TOKEN_REUSE',
+        entity: 'RefreshToken',
+        entityId: record.id,
+        actorId: record.userId,
+        data: { familyId: record.familyId, ...(race ? { race: true } : {}) },
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    };
+    if (!presentedToken) return reject('Refresh token missing');
+
+    const oldHash = hashRefreshToken(presentedToken);
+    const record = await RefreshTokenRepository.findByHash(oldHash);
+    if (!record) return reject();
+
+    if (record.revokedAt) {
+      await auditReuse(record, false);
+      return reject();
+    }
+    if (record.expiresAt.getTime() <= Date.now()) return reject();
+
+    const user = (await UserRepository.findById(record.userId)) as User | null;
+    if (!user || !UserService.isActive(user)) {
+      await RefreshTokenRepository.revokeFamily(record.familyId);
+      return reject();
+    }
+
+    const nextToken = randomBytes(32).toString('base64url');
+    const nextHash = hashRefreshToken(nextToken);
+    // Atomic claim: if a parallel request already rotated it, treat as reuse.
+    const claimed = await RefreshTokenRepository.revokeIfActive(oldHash, nextHash);
+    if (!claimed) {
+      await auditReuse(record, true);
+      return reject();
+    }
+    await RefreshTokenRepository.create({
+      userId: user.id,
+      tokenHash: nextHash,
+      familyId: record.familyId,
+      expiresAt: new Date(Date.now() + refreshTtlMs()),
+      revokedAt: null,
+      replacedByHash: null,
+      userAgent: meta.userAgent ?? null,
+      ip: meta.ip ?? null,
+    });
+
+    const me = await UserService.loadCurrentUser(user);
+    return { accessToken: UserService.signAccessToken(me), refreshToken: nextToken, user: me };
+  }
+
+  /** Revokes the presented refresh token. Always succeeds (idempotent). */
+  static async logout(presentedToken: string | undefined, meta: AuthMeta = {}): Promise<void> {
+    if (!presentedToken) return;
+    const record = await RefreshTokenRepository.findByHash(hashRefreshToken(presentedToken));
+    if (!record) return;
+    await RefreshTokenRepository.revokeIfActive(record.tokenHash, null);
+    await AuditService.record({
+      action: 'LOGOUT',
+      entity: 'User',
+      entityId: record.userId,
+      actorId: record.userId,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+  }
+
+  /** CurrentUserDto from the DB for GET /user/me. */
+  static async getCurrentUser(userId: string): Promise<CurrentUserDto> {
+    const user = (await UserRepository.findById(userId)) as User | null;
+    if (!user || !UserService.isActive(user)) {
+      throw new AppError('Invalid or expired token', 401, 'UNAUTHENTICATED');
+    }
+    return UserService.loadCurrentUser(user);
   }
 
   static async resetPassword(email: string, newPassword: string): Promise<void> {

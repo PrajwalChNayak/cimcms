@@ -9,3 +9,7 @@ process.env.ARGON2_MEMORY_COST = "4096";
 process.env.ARGON2_TIME_COST = "2";
 process.env.ARGON2_PARALLELISM = "1";
 process.env.ARGON2_HASH_LENGTH = "32";
+process.env.ACCESS_TOKEN_TTL = "15m";
+process.env.REFRESH_TOKEN_TTL_DAYS = "7";
+process.env.REFRESH_COOKIE_NAME = "cimcms_rt";
+process.env.REFRESH_COOKIE_PATH = "/api/v1/user/token";
