@@ -13,7 +13,7 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | --- | --- | --- | --- | --- | --- |
 | T0.1 | Create monorepo and import existing repos | done | 2026-11-21 | 2a335c7 (initial), 9b45ab5 (api subtree), 2d54d91 (web subtree), docs commit `chore: T0.1 add docs and progress file` | See deviations D1–D4 |
 | T0.2 | npm workspaces | done | 2026-11-21 | see `git log --grep T0.2` | See deviations D5-D6 |
-| T0.3 | Remove committed secrets | in progress | 2026-11-21 | | docker build check pending; see D7 |
+| T0.3 | Remove committed secrets | done | 2026-11-21 | see `git log --grep T0.3` | Docker build ok, image has no .env; rotation is HUMAN-ONLY (Q3); see D7 |
 | T1.1 | packages/contracts | todo | | | Runs before T0.4 (execution order) |
 | T0.4 | API: middleware order, proxy trust, CORS, rate limits | todo | | | Needs senior review |
 | T0.5 | API: fix known code gaps | todo | | | |
