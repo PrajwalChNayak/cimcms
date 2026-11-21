@@ -44,7 +44,7 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T3.8 | Playwright end-to-end acceptance tests | todo | | | |
 | T4.1 | Dockerfiles | todo | | | |
 | T4.2 | Production compose and Nginx | todo | | | |
-| T4.3 | Mosquitto hardening runbook | todo | | | HUMAN-ONLY execution; needs senior review |
+| T4.3 | Mosquitto hardening runbook | human-only | 2026-11-21 | see `git log --grep T4.3` | runbook written at `docs/runbooks/mosquitto-hardening.md`; owner review and execution pending; needs senior review |
 | T4.4 | Backup and restore | todo | | | |
 | T4.5 | Deploy runbook | todo | | | MVP complete after this task |
 | T5.1 | Rooms and relay assignment | todo | | | Phase 5: waits for O-3, O-9, O-15 |
