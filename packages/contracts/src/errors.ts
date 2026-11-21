@@ -1,0 +1,19 @@
+export const ERROR_CODES = {
+  VALIDATION_FAILED: 400,
+  ACTION_NOT_SUPPORTED: 400,
+  UNAUTHENTICATED: 401,
+  FORBIDDEN: 403,
+  DEVICE_NOT_FOUND: 404,
+  COMMAND_NOT_FOUND: 404,
+  DEVICE_OFFLINE: 409,
+  DEVICE_STALE: 409,
+  MODE_POLICY_BLOCKED: 409,
+  IDEMPOTENCY_CONFLICT: 409,
+  DEVICE_BUSY: 429,
+  RATE_LIMITED: 429,
+  MQTT_UNAVAILABLE: 503,
+} as const;
+export type ErrorCode = keyof typeof ERROR_CODES;
+export function httpStatusFor(code: ErrorCode): number {
+  return ERROR_CODES[code];
+}

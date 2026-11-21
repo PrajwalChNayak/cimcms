@@ -1,0 +1,17 @@
+{
+  "_schema": "event",
+  "payload": {
+    "schema_version": 1,
+    "device_id": "LED-01",
+    "timestamp_utc": "2026-11-21T06:30:00Z",
+    "boot_id": "b7e1c2d3",
+    "seq": 13,
+    "type": "EXPLODED",
+    "data": {
+      "relay": 5,
+      "state": "ON",
+      "source": "COMMAND",
+      "command_id": "3f2b8c1e-5d4a-4e6b-9a7c-1d2e3f4a5b6c"
+    }
+  }
+}

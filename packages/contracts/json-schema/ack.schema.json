@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "number",
+      "const": 1
+    },
+    "command_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9-]{3,40}$"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "SET_RELAY",
+        "SET_ALL_RELAYS",
+        "REQUEST_STATUS",
+        "SET_MODE",
+        "RTC_SYNC_NOW"
+      ]
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "EXECUTED",
+        "REJECTED",
+        "EXPIRED",
+        "DUPLICATE",
+        "FAILED"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "relay": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16
+    },
+    "requested_state": {
+      "type": "string",
+      "enum": [
+        "ON",
+        "OFF"
+      ]
+    },
+    "reported_state": {
+      "type": "string",
+      "enum": [
+        "ON",
+        "OFF"
+      ]
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "simulation_mode": {
+      "type": "boolean"
+    },
+    "clock_unverified": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "command_id",
+    "device_id",
+    "result",
+    "timestamp_utc",
+    "simulation_mode"
+  ]
+}

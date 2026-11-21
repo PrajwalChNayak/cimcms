@@ -1,0 +1,36 @@
+{
+  "_schema": "config",
+  "payload": {
+    "schema_version": 1,
+    "device_id": "LED-01",
+    "config_version": 3,
+    "issued_at_utc": "2026-11-21T06:30:00Z",
+    "timezone": "Asia/Kolkata",
+    "tz_offset_minutes": 0,
+    "auto": {
+      "effective_from": "2026-11-22",
+      "effective_to": null,
+      "channels": [
+        {
+          "relay": 1,
+          "windows": [
+            {
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ],
+              "on": "06:00",
+              "off": "18:00"
+            }
+          ]
+        }
+      ]
+    },
+    "experiment": null
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "_schema": "command",
+  "payload": {
+    "schema_version": 1,
+    "command_id": "3f2b8c1e-5d4a-4e6b-9a7c-1d2e3f4a5b6c",
+    "device_id": "LED-01",
+    "issued_at_utc": "2026-11-21T06:30:00Z",
+    "expires_at_utc": "2026-11-21T06:30:15Z",
+    "source": "web",
+    "action": "TOGGLE_RELAY",
+    "relay": 5,
+    "state": "ON"
+  }
+}

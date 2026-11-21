@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "device_id": "LED-01",
+  "state": "online",
+  "firmware_version": "sim-0.1.0",
+  "mode": "MANUAL",
+  "boot_id": "b7e1c2d3",
+  "timestamp_utc": "2026-11-21T06:30:00Z"
+}

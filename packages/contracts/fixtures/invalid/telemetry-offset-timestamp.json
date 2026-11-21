@@ -1,0 +1,49 @@
+{
+  "_schema": "telemetry",
+  "payload": {
+    "schema_version": 1,
+    "device_id": "LED-01",
+    "firmware_version": "sim-0.1.0",
+    "timestamp_utc": "2026-11-21T12:00:00+05:30",
+    "boot_id": "b7e1c2d3",
+    "seq": 12,
+    "mode": "MANUAL",
+    "simulation_mode": true,
+    "connectivity": {
+      "wifi_connected": true,
+      "ssid": "farm-net",
+      "ip": "192.168.1.50",
+      "rssi_dbm": -58,
+      "mqtt_connected": true
+    },
+    "relay_states": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "relay_on_count": 3,
+    "rtc": {
+      "available": true,
+      "valid": true,
+      "time_utc": "2026-11-21T06:30:00Z",
+      "sync_source": "NTP",
+      "last_sync_utc": "2026-11-21T06:30:00Z",
+      "last_sync_result": "OK",
+      "drift_ms": 12,
+      "lost_power": false
+    }
+  }
+}
