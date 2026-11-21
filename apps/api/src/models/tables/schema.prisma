@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  email     String       @unique
+  password  String
+  name      String?
+  status    CommonStatus @default(ACTIVE)
+  roles     UserRole[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model Role {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  name        String           @unique
+  status      CommonStatus     @default(ACTIVE)
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name      String           @unique
+  status    CommonStatus     @default(ACTIVE)
+  isSystem  Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  roles     RolePermission[]
+}
+
+// Junction model for User <-> Role
+model UserRole {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  roleId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+}
+
+// Junction model for Role <-> Permission
+model RolePermission {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  roleId       String     @db.ObjectId
+  permissionId String     @db.ObjectId
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+}
+
+model Consumer {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  email           String    @unique
+  password        String
+  name            String?
+  mobileNumber    String?
+  profileImageUrl String?
+  lastLogin       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  farms           Farm[]
+  devices         Device[]
+}
+
+model Farm {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  address    String?
+  consumerId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  consumer   Consumer @relation(fields: [consumerId], references: [id])
+  devices    Device[]
+}
+
+model Device {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String?
+  type       String?
+  location   String?
+  deviceId   String    @unique
+  deviceType String
+  consumerId String?   @db.ObjectId
+  farmId     String?   @db.ObjectId
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  consumer   Consumer? @relation(fields: [consumerId], references: [id])
+  farm       Farm?     @relation(fields: [farmId], references: [id])
+}
+
+model MasterTypeConstant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String
+  value     String
+  info      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum CommonStatus {
+  ACTIVE
+  INACTIVE
+  DELETED
+  BLOCK
+}
