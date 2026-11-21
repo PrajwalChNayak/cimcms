@@ -54,3 +54,11 @@ export const commandStatusText = (
       return "Duplicate — ignored by device";
   }
 };
+
+// ── Texts that are NOT in plan section 9 (added by T3.4, owner may reword) ──
+/** Shown when the browser has no live socket: the UI cannot show the result of a command. */
+export const REALTIME_DOWN_TEXT = "Live connection lost — commands disabled";
+export const RELAY_UNKNOWN_TEXT = "State unknown";
+export const BULK_CONFIRM_BODY =
+  "This sends one command to the device. The result is shown here when the device replies.";
+export const SUBMIT_FAILED_TEXT = "Command was not sent";

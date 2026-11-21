@@ -1,5 +1,6 @@
 import { baseApi } from "@api/baseApi.ts";
 import { combineReducers } from "@reduxjs/toolkit";
+import commandsSlice from "@features/commands/store/commandsSlice.ts";
 import authSlice from "@store/slices/authSlice.ts";
 import devicesSlice from "@store/slices/devicesSlice.ts";
 import farmsSlice from "@store/slices/farmsSlice.ts";
@@ -14,6 +15,7 @@ const rootReducer = combineReducers({
   toast: toastSlice,
   farms: farmsSlice,
   devices: devicesSlice,
+  commands: commandsSlice,
   notifications: notificationsSlice,
 });
 

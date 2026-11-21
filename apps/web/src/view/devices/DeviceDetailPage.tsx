@@ -16,7 +16,7 @@ import {
   DEVICE_TYPE_LABEL,
   relayCountText,
 } from "@features/devices/utils/deviceTypeInfo";
-import { SIMULATION_BANNER } from "@features/ledControl/ledText";
+import { SimulationBanner } from "@features/ledControl/components/SimulationBanner";
 import { formatIst, formatRelative } from "@shared/utils/time";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -69,15 +69,7 @@ export const DeviceDetailPage = () => {
         <span className="text-text-primary">{device.name}</span>
       </div>
 
-      {simulation && (
-        <div
-          className="rounded-btn px-4 py-3 text-sm font-medium bg-violet-50 text-violet-800 ring-1 ring-violet-200"
-          role="status"
-          data-testid="simulation-banner"
-        >
-          {SIMULATION_BANNER}
-        </div>
-      )}
+      {simulation && <SimulationBanner />}
 
       {/* Header + state summary */}
       <div className="rounded-card bg-surface border border-border shadow-sm p-5">
@@ -121,6 +113,17 @@ export const DeviceDetailPage = () => {
               )}
             />
             <InfoRow label="Last update" value={formatIst(state?.updatedAt)} />
+          </div>
+        )}
+
+        {!planned && (
+          <div className="mt-3 flex gap-4 text-sm">
+            <Link to={`/devices/${device.deviceId}/commands`} className="text-primary hover:underline">
+              Command history
+            </Link>
+            <Link to={`/devices/${device.deviceId}/events`} className="text-primary hover:underline">
+              Event history
+            </Link>
           </div>
         )}
 

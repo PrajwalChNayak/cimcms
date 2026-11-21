@@ -26,3 +26,42 @@ export const formatRelative = (
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 };
+
+const IST_OFFSET_MS = 330 * 60_000; // UTC+05:30, no DST (D-17)
+const DAY_MS = 24 * 60 * 60_000;
+const DATE_INPUT = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const istDayStartMs = (date: string): number | null => {
+  const m = DATE_INPUT.exec(date);
+  if (!m) return null;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(ms) ? null : ms - IST_OFFSET_MS;
+};
+
+/**
+ * `<input type="date">` value (YYYY-MM-DD, read as an IST calendar day, because the
+ * UI shows IST everywhere) -> ISO UTC of 00:00:00.000 IST that day. Invalid -> undefined.
+ */
+export const istDateStartToUtcIso = (date: string): string | undefined => {
+  const ms = istDayStartMs(date);
+  return ms === null ? undefined : new Date(ms).toISOString();
+};
+
+/** Same, but the last millisecond (23:59:59.999 IST) of that day. */
+export const istDateEndToUtcIso = (date: string): string | undefined => {
+  const ms = istDayStartMs(date);
+  return ms === null ? undefined : new Date(ms + DAY_MS - 1).toISOString();
+};
+
+/** Elapsed time between two ISO strings: "850 ms", "1.2 s", "2 m 5 s". Missing/invalid -> em dash. */
+export const formatDuration = (
+  fromIso: string | null | undefined,
+  toIso: string | null | undefined,
+): string => {
+  if (!isValid(fromIso) || !isValid(toIso)) return "—";
+  const ms = Date.parse(toIso) - Date.parse(fromIso);
+  if (ms < 0) return "—";
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.floor(ms / 60_000)} m ${Math.round((ms % 60_000) / 1000)} s`;
+};

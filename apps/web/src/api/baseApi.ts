@@ -116,6 +116,7 @@ export const baseApi = createApi({
     "DeviceEvents",
     "DeviceCommands",
     "RelayChanges",
+    "Audit",
     "MasterTypeConstant",
     "Permission",
     "Role",

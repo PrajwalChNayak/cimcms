@@ -37,10 +37,10 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T3.1 | Auth: internal user login + refresh flow | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
 | T3.2 | Realtime client | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
 | T3.3 | Devices feature on real API with live state | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
-| T3.4 | LED control feature | todo | | | |
-| T3.5 | Dashboard | todo | | | |
-| T3.6 | History pages | todo | | | |
-| T3.7 | Navigation and permission gating | todo | | | |
+| T3.4 | LED control feature | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
+| T3.5 | Dashboard | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
+| T3.6 | History pages | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
+| T3.7 | Navigation and permission gating | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
 | T3.8 | Playwright end-to-end acceptance tests | todo | | | |
 | T4.1 | Dockerfiles | todo | | | |
 | T4.2 | Production compose and Nginx | todo | | | |
@@ -89,6 +89,8 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 
 - **D13 (T0.6/T2.4/T2.5):** `AppError` gained optional `details`; `ValidationError(message, errorCode="VALIDATION_ERROR", details?)`. Validate issues shaped `{in,path,message,code}`; headers validated but not replaced. Dispatcher reads device type from `Device.deviceType` (cached 60 s); drops on type mismatch with topic. `MqttClient.connect()` resolves on first connect; `shutdown()` and `installShutdownHooks(after?)` exist but are NOT yet called from `app.ts`: wire in T2.6/T2.8 (`startMqtt()` after `initTimeseries()`). Empty (retained-clear) payloads reach ingest: T2.6 must treat empty status payload as no-op. `ingest.service.ts` is a stub until T2.6.
 - **D14 (T2.1/T2.2):** Prisma enums written multi-line (one-line form rejected). `app.ts` has `bootstrap()` calling `initTimeseries()` before listen. Device seeding sets both `type` and `deviceType` (existing schema requires `deviceType`). Permission mapping: existing `DEVICE_READ` reused; legacy `DEVICE_CREATE/UPDATE/DELETE` kept (not equivalent to new ones); `DEVICE_MANAGE` separate. New role TECHNICIAN. VIEWER now has exactly the 6 matrix permissions (legacy `FARM_READ`, `CONSUMER_READ`, `MASTER_READ` removed from VIEWER; sync on reseed). Fixed `test/setup/mongo.ts` hang: `execFileSync` for `prisma db push` blocked mongod stdout; now async `execFile`. `BOOTSTRAP_ADMIN_PASSWORD` not in `.env.example` (add in a later task).
+
+- **D15 (T3.4-T3.7):** One commit. `useCommandUpdates(deviceId, deviceObjectId)` takes ObjectId for REST restore. Extra UI texts beyond section 9: "Live connection lost — commands disabled", "State unknown", bulk confirm body, "Command was not sent". "Last result" on RelayCard shows SET_RELAY only; bulk result in `BulkControlBar`; bulk in flight disables all relay buttons. Date filters read the picked day as an IST day. Commands endpoint filter: status only. `VITE_FF_CIMCMS` defaults false when unset; `.env.example` sets true. `/users` guarded by roles ADMIN/SUPER_ADMIN (exact USER_* permission names unknown; TODO in code). Room label placeholder "Room: not assigned" until T5.1. Assumed API shapes: command POST returns `CommandDto` in envelope `result`; `GET /audit` same paginated envelope. `commandsSlice.byId` never pruned. `AppRoutes` exported separately from `AppRouter` for tests.
 
 ## Questions for owner
 

@@ -65,6 +65,34 @@ export const protectedRoutes: RouteConfig[] = [
     roles: [],
   },
   {
+    path: "/devices/:deviceId/control",
+    element: "LedControlPage",
+    layout: "DashboardLayout",
+    permissions: ["DEVICE_READ"],
+    roles: [],
+  },
+  {
+    path: "/devices/:deviceId/commands",
+    element: "DeviceCommandsPage",
+    layout: "DashboardLayout",
+    permissions: ["DEVICE_READ"],
+    roles: [],
+  },
+  {
+    path: "/devices/:deviceId/events",
+    element: "DeviceEventsPage",
+    layout: "DashboardLayout",
+    permissions: ["DEVICE_READ"],
+    roles: [],
+  },
+  {
+    path: "/audit",
+    element: "AuditPage",
+    layout: "DashboardLayout",
+    permissions: ["AUDIT_READ"],
+    roles: [],
+  },
+  {
     path: "/settings",
     element: "SettingsPage",
     layout: "DashboardLayout",
@@ -83,7 +111,8 @@ export const protectedRoutes: RouteConfig[] = [
     element: "UsersManagementPage",
     layout: "DashboardLayout",
     permissions: [],
-    roles: [],
+    // TODO(owner-decision): confirm which roles may manage users (plan section 7: existing USER_* / ROLE_* are ADMIN only).
+    roles: ["ADMIN", "SUPER_ADMIN"],
   },
 ];
 

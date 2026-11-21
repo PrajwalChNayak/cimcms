@@ -1,6 +1,8 @@
-import { navigationItems } from "@shared/layouts/dashboard/navigationConfig";
+import { ENV } from "@config/env";
+import { getNavigationItems } from "@shared/layouts/dashboard/navigationConfig";
 import SidebarItem from "@shared/layouts/dashboard/SidebarItem";
-import { logout } from "@store/slices/authSlice";
+import { useAppSelector } from "@store/hooks";
+import { logout, selectAuthPermissions, selectAuthRoles } from "@store/slices/authSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -49,6 +51,13 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, onNavigate }) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const permissions = useAppSelector(selectAuthPermissions);
+    const roles = useAppSelector(selectAuthRoles);
+    const navigationItems = getNavigationItems({
+        permissions: permissions ?? [],
+        roles: roles ?? [],
+        cimcms: ENV.FF_CIMCMS,
+    });
 
     const handleLogout = () => {
         dispatch(logout());

@@ -139,7 +139,7 @@ export const deviceApi = baseApi.injectEndpoints({
         parseResponse(eventsSchema, raw, "GET /devices/:id/events").result,
       providesTags: (_r, _e, { id }) => [{ type: "DeviceEvents", id }],
       async onCacheEntryAdded(
-        { deviceId, type, page },
+        { deviceId, type, page, from, to },
         { cacheDataLoaded, cacheEntryRemoved, updateCachedData },
       ) {
         try {
@@ -153,6 +153,7 @@ export const deviceApi = baseApi.injectEndpoints({
           if (envelope.deviceId !== deviceId) return;
           // Live items only belong on the first page, and must match a type filter.
           if ((page ?? 1) !== 1) return;
+          if (from || to) return; // a date range is a fixed window: no live items
           if (type && event.type !== type) return;
           updateCachedData((current) => {
             if (current.data.some((e) => e.id === event.id)) return current;
