@@ -48,18 +48,7 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-const shutdown = async (): Promise<void> => {
-  try {
-    logger.info("Disconnecting Prisma...");
-    await prisma.$disconnect();
-    process.exit(0);
-  } catch (error) {
-    logger.error("Error during Prisma disconnect:", error);
-    process.exit(1);
-  }
-};
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+// No SIGINT/SIGTERM handler here: app.ts owns the shutdown order (jobs, sockets,
+// MQTT offline publish, then Prisma disconnect). Scripts call $disconnect() themselves.
 
 export default prisma;

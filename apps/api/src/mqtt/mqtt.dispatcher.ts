@@ -9,18 +9,22 @@ import MqttClient from "./mqtt.client";
 const CACHE_TTL_MS = 60_000;
 const UNREGISTERED_LOG_INTERVAL_MS = 10 * 60_000;
 
-const typeCache = new Map<string, { type: string | null; at: number }>();
+const typeCache = new Map<string, { type: Promise<string | null>; at: number }>();
 const unregisteredLoggedAt = new Map<string, number>();
 
-async function lookupDeviceType(deviceId: string): Promise<string | null> {
+/**
+ * Cached per device. The cache holds the pending promise, so messages that
+ * arrive together share one lookup and continue in arrival order (an ack must
+ * not overtake the event that came before it).
+ */
+function lookupDeviceType(deviceId: string): Promise<string | null> {
   const hit = typeCache.get(deviceId);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.type;
-  const device = await prisma.device.findUnique({
-    where: { deviceId },
-    select: { deviceType: true },
-  });
-  const type = device?.deviceType ?? null;
+  const type = prisma.device
+    .findUnique({ where: { deviceId }, select: { deviceType: true } })
+    .then((device) => device?.deviceType ?? null);
   typeCache.set(deviceId, { type, at: Date.now() });
+  type.catch(() => typeCache.delete(deviceId));
   return type;
 }
 
