@@ -1,3 +1,4 @@
+import type { Column } from "@/shared/components/ui/DataTable";
 import type { MasterTypeConstant } from "@/types";
 import CategoryBadge from "./CategoryBadge";
 

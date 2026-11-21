@@ -12,7 +12,7 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | Task | Title | Status | Date | Commit(s) | Notes |
 | --- | --- | --- | --- | --- | --- |
 | T0.1 | Create monorepo and import existing repos | done | 2026-11-21 | 2a335c7 (initial), 9b45ab5 (api subtree), 2d54d91 (web subtree), docs commit `chore: T0.1 add docs and progress file` | See deviations D1–D4 |
-| T0.2 | npm workspaces | todo | | | |
+| T0.2 | npm workspaces | done | 2026-11-21 | see `git log --grep T0.2` | See deviations D5-D6 |
 | T0.3 | Remove committed secrets | todo | | | |
 | T1.1 | packages/contracts | todo | | | Runs before T0.4 (execution order) |
 | T0.4 | API: middleware order, proxy trust, CORS, rate limits | todo | | | Needs senior review |
@@ -68,6 +68,10 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **D3 (T0.1):** The four source documents were moved from `C:\project\cims_phase\` into `docs/source/`. The original `plan.md` stays in `C:\project\cims_phase\` and a copy is in `docs/plan.md`. `autorun-prompt.md` stays outside the repo.
 - **D4 (T0.1):** The imported web app (`apps/web/package.json`) does **not** depend on `zod`, and no file in `apps/web/src` imports it. `UI_ARCHITECTURE.md` describes Zod response validation, so the code and the document differ. This affects T1.1 step 1 ("use the same Zod major as apps/web"). See question Q2.
 - **Note (T0.1):** The local Node version is v22.23.3 (npm 10.9.9). The plan targets Node 20 (`engines: >=20`). CI (T0.9) pins Node 20.
+
+- **D5 (T0.2):** `apps/web` `tsc -b` failed with ~45 pre-existing type errors (missing `Column` import, missing `Role` tag in `baseApi.tagTypes`, `DataTable` generic `Record<string, unknown>` too strict, modal `onCreate` typed `Promise<void>`). Fixed minimally so `npm run build -w apps/web` passes (the plan's Done-when needs it): added imports, tag, `T extends object`, `Promise<unknown>`. No behaviour change.
+- **D6 (T0.2):** Pre-existing errors left as is (not unrelated-fixed here): `apps/api` typecheck 67 errors (T0.5 must reach zero), `apps/api` lint 55 errors / 39 warnings, `apps/web` lint 17 errors / 2 warnings (react-hooks, no-explicit-any). `apps/api` build (tsup) and `apps/web` build pass. T0.9 CI must deal with the lint baseline (see T0.9 notes).
+- Added `typecheck` script to `apps/web` (`tsc --noEmit -p tsconfig.app.json`). Root `npm install` created one root `package-lock.json`; app lockfiles removed.
 
 ## Questions for owner
 

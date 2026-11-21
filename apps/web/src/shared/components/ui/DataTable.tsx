@@ -171,7 +171,7 @@ const ClientSearch: FC<{ value: string; onChange: (v: string) => void }> = ({ va
 ───────────────────────────────────────── */
 interface SearchField { id: number; column: string; value: string; }
 
-const ServerSearch = <T extends Record<string, unknown>>({
+const ServerSearch = <T extends object>({
   columns,
   onSearch,
 }: {
@@ -309,7 +309,7 @@ const ServerSearch = <T extends Record<string, unknown>>({
 /* ─────────────────────────────────────────
    Bulk action bar
 ───────────────────────────────────────── */
-const BulkBar = <T extends Record<string, unknown>>({
+const BulkBar = <T extends object>({
   count,
   actions,
   onClear,
@@ -491,7 +491,7 @@ const Pagination: FC<PaginationConfig> = ({
 /* ─────────────────────────────────────────
    Main DataTable
 ───────────────────────────────────────── */
-export const DataTable = <T extends Record<string, unknown>>({
+export const DataTable = <T extends object>({
   columns = [],
   data = [],
   actions = [],

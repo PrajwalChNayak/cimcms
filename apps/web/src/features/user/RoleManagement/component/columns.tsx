@@ -1,3 +1,4 @@
+import type { Column } from "@/shared/components/ui/DataTable";
 import type { Role } from "@/types";
 
 export const COLUMNS: Column<Role>[] = [

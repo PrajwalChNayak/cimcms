@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 interface CreatePermissionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (body: CreatePermissionBody) => Promise<void>;
+    onCreate: (body: CreatePermissionBody) => Promise<unknown>;
     isCreating: boolean;
 }
 

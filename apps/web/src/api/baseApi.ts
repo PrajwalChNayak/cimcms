@@ -40,6 +40,7 @@ export const baseApi = createApi({
     "Device",
     "MasterTypeConstant",
     "Permission",
+    "Role",
   ] as const,
   endpoints: () => ({}),
   keepUnusedDataFor: 60,

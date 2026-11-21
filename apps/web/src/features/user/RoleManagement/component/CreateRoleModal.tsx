@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 interface CreateRoleModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (body: CreateRoleBody) => Promise<void>;
+    onCreate: (body: CreateRoleBody) => Promise<unknown>;
     isCreating: boolean;
 }
 

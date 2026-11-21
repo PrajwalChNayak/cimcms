@@ -16,7 +16,7 @@ export const CreateMasterTypeConstantModal = ({
 }: {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (body: CreateMasterTypeConstantBody) => Promise<void>;
+    onCreate: (body: CreateMasterTypeConstantBody) => Promise<unknown>;
     isCreating: boolean;
 }) => {
     const idRef = useRef(1);
