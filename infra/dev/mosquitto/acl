@@ -1,0 +1,19 @@
+# Dev ACL (same as the prod template in docs/runbooks/mosquitto-hardening.md, minus the mqttuser block)
+
+user cimcms-backend
+topic read cimcms/led/+/status
+topic read cimcms/led/+/telemetry
+topic read cimcms/led/+/ack
+topic read cimcms/led/+/event
+topic write cimcms/led/+/command
+topic write cimcms/led/+/config
+topic read cimcms/humidifier/+/status
+topic readwrite cimcms/backend/status
+
+# Device accounts: username must equal the device ID
+pattern write cimcms/led/%u/status
+pattern write cimcms/led/%u/telemetry
+pattern write cimcms/led/%u/ack
+pattern write cimcms/led/%u/event
+pattern read cimcms/led/%u/command
+pattern read cimcms/led/%u/config
