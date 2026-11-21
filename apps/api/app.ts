@@ -1,18 +1,55 @@
 import "dotenv/config";
+import http from "node:http";
 import { createApp } from "@/createApp";
+import { startJobs, stopJobs } from "@/jobs";
+import MqttClient from "@/mqtt/mqtt.client";
+import { startMqtt } from "@/mqtt";
+import { attachRealtime, closeRealtime } from "@/realtime";
 import { initTimeseries } from "@models/init/timeseries";
+import prisma from "@models/prisma.client";
 import logger from "@utils/logger.utils";
 
 const app = createApp();
+const server = http.createServer(app);
+
+/**
+ * Orderly shutdown (D13): stop jobs, close sockets and the HTTP listener, tell the
+ * broker we are offline, and only then disconnect the database.
+ */
+let stopping = false;
+async function shutdown(signal: string): Promise<void> {
+  if (stopping) return;
+  stopping = true;
+  logger.info(`${signal} received, shutting down`);
+  let code = 0;
+  try {
+    stopJobs();
+    await closeRealtime(); // also closes the HTTP server
+    if (server.listening) await new Promise<void>((r) => server.close(() => r()));
+    await MqttClient.shutdown();
+    await prisma.$disconnect();
+  } catch (err) {
+    logger.error("Error during shutdown", err);
+    code = 1;
+  }
+  process.exit(code);
+}
 
 async function bootstrap(): Promise<void> {
   // Must run before anything writes telemetry. Idempotent (safe on every boot).
   await initTimeseries();
 
-  // Later tasks: start the MQTT client here (T2.5), AFTER initTimeseries(), so
-  // the first inbound telemetry message never creates a plain collection.
+  attachRealtime(server);
 
-  app.listen(process.env.PORT, () => {
+  // MQTT starts AFTER initTimeseries() so the first inbound telemetry message never
+  // creates a plain collection. Not awaited: the API must serve requests while the
+  // broker is down (commands answer 503 until the client connects).
+  startMqtt().catch((err: unknown) => {
+    logger.error("MQTT start failed", { error: String(err) });
+  });
+  startJobs();
+
+  server.listen(process.env.PORT, () => {
     logger.info(`App is Running ON PORT => ${process.env.PORT}`);
     if (process.env.API_DOCS_ENABLED === "true") {
       logger.info(
@@ -21,6 +58,9 @@ async function bootstrap(): Promise<void> {
     }
   });
 }
+
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 bootstrap().catch((err: unknown) => {
   logger.error("Bootstrap failed", err);
