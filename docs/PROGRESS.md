@@ -34,12 +34,12 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T2.9 | Device read endpoints | done | 2026-11-21 | see `git log --grep T2.9` (T2.9-T2.11 one commit) | 27 tests; api suite 128/128; see D19 |
 | T2.10 | Health, liveness job, retention job | done | 2026-11-21 | see `git log --grep T2.9` (T2.9-T2.11 one commit) | 11 tests (fake timers); api suite 128/128; see D19 |
 | T2.11 | Backend end-to-end test | done | 2026-11-21 | see `git log --grep T2.9` (T2.9-T2.11 one commit) | 7 e2e tests; api suite 128/128; see D19 |
-| T3.1 | Auth: internal user login + refresh flow | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
-| T3.2 | Realtime client | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
-| T3.3 | Devices feature on real API with live state | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
-| T3.4 | LED control feature | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
+| T3.1 | Auth: internal user login + refresh flow | done | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
+| T3.2 | Realtime client | done | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
+| T3.3 | Devices feature on real API with live state | done | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
+| T3.4 | LED control feature | done | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
 | T3.5 | Dashboard | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
-| T3.6 | History pages | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
+| T3.6 | History pages | done | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
 | T3.7 | Navigation and permission gating | done-unverified | 2026-11-21 | see `git log --grep T3.4` (T3.4-T3.7 one commit) | web tests 76/76 with MSW + fake socket; not run against real API; see D15 |
 | T3.8 | Playwright end-to-end acceptance tests | done | 2026-11-22 | see `git log --grep T3.8` | `npx playwright test` 11/11 (3.6 min) against real API + simulator; CI job manual only, not run (no remote); see D20 |
 | T4.1 | Dockerfiles | done | 2026-11-21 | see `git log --grep T4.1` (T4.1/T4.2/T4.4/T4.5 one commit) | both images build from root; no .env in image; see D18 |
@@ -53,6 +53,10 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T5.4 | Experiments | done | 2026-11-22 | see `git log --grep T5.1` (T5.1-T5.6 one commit) | owner defaults used (O-3/O-4/O-9/O-15); not run against dev Mongo/broker; see D21 |
 | T5.5 | RTC and diagnostics | done | 2026-11-22 | see `git log --grep T5.1` (T5.1-T5.6 one commit) | owner defaults used (O-3/O-4/O-9/O-15); not run against dev Mongo/broker; see D21 |
 | T5.6 | Reports and CSV export | done | 2026-11-22 | see `git log --grep T5.1` (T5.1-T5.6 one commit) | owner defaults used (O-3/O-4/O-9/O-15); not run against dev Mongo/broker; see D21 |
+
+## Final state (2026-11-22)
+
+All tasks are in a final state. See `docs/FINAL_REPORT.md`. T3.1-T3.4 and T3.6 were upgraded to `done` after the Playwright run (11/11) exercised them against the real API.
 
 ## Owner decisions recorded
 
