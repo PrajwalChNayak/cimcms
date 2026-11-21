@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Environment files (commit only .env.example)
+.env
+.env.*
+!.env.example
+
+# Playwright
+playwright-report/
+test-results/
