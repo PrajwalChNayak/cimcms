@@ -24,6 +24,7 @@ export interface FindAllOptions {
   fieldMappings?: FieldMappings;
   additionalWhere?: Record<string, unknown>;
   include?: Record<string, unknown>;
+  select?: Record<string, unknown>;
   orderBy?: Record<string, unknown>;
 }
 
@@ -95,7 +96,7 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  Prisma delegate shortcut                                           */
   /* ------------------------------------------------------------------ */
-  private static get db(): AnyDelegate {
+  protected static get db(): AnyDelegate {
     return getDelegate(this._modelName);
   }
 
@@ -122,7 +123,7 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  READ                                                               */
   /* ------------------------------------------------------------------ */
-  static async existsById<T>(id: string): Promise<boolean> {
+  static async existsById(id: string): Promise<boolean> {
     const count = await this.db.count({
       where: { id },
     });
@@ -135,7 +136,7 @@ class BaseRepository {
   }
 
   static async findById<T>(
-    id: number,
+    id: string,
     { include, additionalWhere = {} }: FindByIdOptions = {},
   ): Promise<T | null> {
     const resolvedInclude = include ?? this._defaultInclude ?? undefined;
@@ -166,7 +167,7 @@ class BaseRepository {
       additionalWhere,
       include,
       select,
-      orderBy = { created_at: 'desc' },
+      orderBy = { createdAt: 'desc' },
     }: FindAllOptions = {},
   ): Promise<PaginationResult<T>> {
     const { skip, take } = PaginationUtils.getSkipTake(page, limit);
@@ -312,7 +313,7 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  UPDATE                                                             */
   /* ------------------------------------------------------------------ */
-  static async updateById<T>(id: number, data: Record<string, unknown>): Promise<T> {
+  static async updateById<T>(id: string, data: Record<string, unknown>): Promise<T> {
     return this.db.update({
       where: { id },
       data: { ...data, updatedAt: new Date() },
@@ -322,12 +323,12 @@ class BaseRepository {
   /* ------------------------------------------------------------------ */
   /*  DELETE                                                             */
   /* ------------------------------------------------------------------ */
-  static async softDelete<T>(id: number): Promise<T> {
+  static async softDelete<T>(id: string): Promise<T> {
     return this.updateById<T>(id, { status: 'DELETED' });
   }
 
   static async deleteById<T>(
-    id: number,
+    id: string,
     soft = true,
     statusField = 'status',
   ): Promise<T> {
@@ -341,7 +342,7 @@ class BaseRepository {
   }
 
   static async bulkDeleteByIds<T>(
-    ids: number[],
+    ids: string[],
     soft = true,
     statusField = 'status',
   ): Promise<T> {
@@ -360,7 +361,7 @@ class BaseRepository {
   /*  MISC                                                               */
   /* ------------------------------------------------------------------ */
   static async toggleStatus<T>(
-    id: number,
+    id: string,
     currentStatus: string,
     statusField = 'status',
   ): Promise<T> {
@@ -373,7 +374,7 @@ class BaseRepository {
   }
 
   static async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
-    return prisma.$transaction(fn);
+    return prisma.$transaction((tx) => fn(tx as unknown as PrismaClient));
   }
 
   /* ------------------------------------------------------------------ */

@@ -26,7 +26,9 @@
   "rules": {
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": "warn",
-    "import/no-relative-parent-imports": "error",
+    // Disabled: it flags tsconfig path aliases (@utils/...) as relative parent imports.
+    // Real "../" imports are still blocked by no-restricted-imports below.
+    "import/no-relative-parent-imports": "off",
     "no-restricted-imports": [
       "error",
       {

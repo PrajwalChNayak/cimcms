@@ -1,3 +1,9 @@
+/**
+ * NOT MOUNTED (T0.4). This middleware used to run globally, but it rejects any
+ * URL containing "%" and any query value containing ":" - that blocks valid ISO
+ * timestamps such as 2026-11-20T12:00:00Z in query strings. Request validation
+ * is done with Zod schemas per route (T0.6) instead. File kept for reference.
+ */
 import { handleBadRequest } from "@utils/responsehandler/index.utils";
 import { NextFunction, Request, Response } from "express";
 

@@ -43,13 +43,13 @@ class DeviceController {
     } = req.query;
 
     const result = await DeviceService.getDevicesByConsumerId(
+      consumerId as string,
       +page,
       +limit,
       name as string | undefined,
       type as string | undefined,
       location as string | undefined,
       deviceId as string | undefined,
-      consumerId as string,
       farmId as string | undefined,
     );
     handleDataRetrieval(res, result, 'Devices fetched successfully');

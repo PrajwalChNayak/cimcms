@@ -23,26 +23,26 @@ class UserController {
   }
 
   static async getUserRoleById(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await UserService.getUserRoleById(id);
     handleSuccess(res, result, 'User Role fetched successfully');
   }
 
   static async updateUserRole(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, status } = req.body;
     const result = await UserService.updateUserRole(id, { name, status });
     handleSuccess(res, result, 'User Role updated successfully');
   }
 
   static async deleteUserRole(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await UserService.deleteUserRole(id);
     handleSuccess(res, result, 'User Role deleted successfully');
   }
 
   static async toggleUserRole(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body;
     const result = await UserService.toggleUserRole(id, status as string);
     handleSuccess(res, result, 'User Role toggled successfully');
@@ -68,20 +68,20 @@ class UserController {
   }
 
   static async updatePermission(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, status } = req.body;
     const result = await UserService.updatePermission(id, { name, status });
     handleSuccess(res, result, 'Permission updated successfully');
   }
 
   static async deletePermission(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await UserService.deletePermission(id);
     handleSuccess(res, result, 'Permission deleted successfully');
   }
 
   static async togglePermission(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body;
     const result = await UserService.togglePermission(id, status as string);
     handleSuccess(res, result, 'Permission toggled successfully');
@@ -129,13 +129,13 @@ class UserController {
   }
 
   static async getUserById(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await UserService.getUserById(id);
     handleSuccess(res, result, 'User fetched successfully');
   }
 
   static async updateUser(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, email, status } = req.body;
     const result = await UserService.updateUser(id, {
       name: name as string,
@@ -146,7 +146,7 @@ class UserController {
   }
 
   static async deleteUser(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const result = await UserService.deleteUser(id);
     handleSuccess(res, result, 'User deleted successfully');
   }

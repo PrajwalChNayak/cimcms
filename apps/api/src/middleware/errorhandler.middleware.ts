@@ -7,7 +7,7 @@ import {
 } from "@prisma/client/runtime/library.js";
 import { AppError } from "@utils/errors/custom.errors";
 import logger from "@utils/logger.utils";
-import { handleError } from "@utils/responsehandler/index.utils";
+import { Constants } from "@utils/constant.utils";
 import type { NextFunction, Request, Response } from "express";
 
 interface ParsedDbError {
@@ -477,22 +477,14 @@ const errorHandler = async (
     logger.warn("Client Error:", details);
   }
 
-  const isProd = process.env.NODE_ENV === "production";
-
-  const response: Record<string, unknown> = {
-    success: false,
+  // Same envelope as other responses, plus errorCode so clients can branch on it.
+  res.status(statusCode).json({
+    result: null,
     statusCode,
+    status: Constants.FAILED_STATUS,
     message,
     errorCode,
-  };
-
-  if (!isProd) {
-    response.stack = mapped.stack ?? (err as Error).stack;
-    response.details = details;
-    response.originalError = (err as Error).message;
-  }
-
-  await handleError(res, response, statusCode);
+  });
 };
 
 export default errorHandler;

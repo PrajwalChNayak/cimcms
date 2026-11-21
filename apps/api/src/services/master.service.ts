@@ -1,5 +1,5 @@
 import MasterTypeConstantRepository from '@/repositories/mastertypeconstant.repository';
-import PaginationUtils from '@/utils/pagination.utils';
+import PaginationUtils, { type PaginationResult } from '@/utils/pagination.utils';
 import type { MasterTypeConstant } from '@prisma/client';
 
 class MasterService {
@@ -7,8 +7,8 @@ class MasterService {
     type: string;
     value: string;
     info?: Record<string, unknown>;
-  }): Promise<Record<string, unknown>> {
-    const newConstant = await MasterTypeConstantRepository.create(data);
+  }): Promise<MasterTypeConstant> {
+    const newConstant = await MasterTypeConstantRepository.create<MasterTypeConstant>(data);
 
     return newConstant;
   }
@@ -18,10 +18,7 @@ class MasterService {
     value?: string | string[];
     page?: string | string[];
     limit?: string | string[];
-  }): Promise<{
-    constants: Record<string, unknown>[];
-    total: number;
-  }> {
+  }): Promise<PaginationResult<MasterTypeConstant>> {
     const { type, value } = query;
 
     const { page, limit } = PaginationUtils.getPaginationParams(query);

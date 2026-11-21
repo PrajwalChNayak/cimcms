@@ -17,7 +17,7 @@ function yamlStr(s: unknown): string {
   const str = String(s);
   if (str === "") return '""';
   if (
-    /[:#{}\[\],&*?|<>=!%@`]/.test(str[0]) ||
+    /[:#{}[\],&*?|<>=!%@`]/.test(str[0]) ||
     /[\n\r"]/.test(str) ||
     str.includes(": ") ||
     str.includes(" #") ||

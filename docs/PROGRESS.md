@@ -15,10 +15,10 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T0.2 | npm workspaces | done | 2026-11-21 | see `git log --grep T0.2` | See deviations D5-D6 |
 | T0.3 | Remove committed secrets | done | 2026-11-21 | see `git log --grep T0.3` | Docker build ok, image has no .env; rotation is HUMAN-ONLY (Q3); see D7 |
 | T1.1 | packages/contracts | done | 2026-11-21 | see `git log --grep T1.1` | 37/37 tests, 6 JSON Schemas; Zod 4.6.7 (Q2 default); see D9 |
-| T0.4 | API: middleware order, proxy trust, CORS, rate limits | todo | | | Needs senior review |
-| T0.5 | API: fix known code gaps | todo | | | |
+| T0.4 | API: middleware order, proxy trust, CORS, rate limits | done | 2026-11-21 | see `git log --grep T0.4` | needs senior review; live curl 429 not run (no Mongo then), proven by supertest; see D10 |
+| T0.5 | API: fix known code gaps | done | 2026-11-21 | same commit as T0.4 | typecheck 0 errors; lint 0 errors/25 warnings; see D10 |
 | T0.6 | API: request ID and Zod validation middleware | todo | | | |
-| T0.7 | API: test setup | todo | | | |
+| T0.7 | API: test setup | done | 2026-11-21 | see `git log --grep T0.7` | 5/5 tests, no Docker |
 | T0.8 | Web: test setup | done | 2026-11-21 | 7499d64 | `npm test -w apps/web` 1/1 pass |
 | T0.9 | CI | todo | | | |
 | T1.2 | Dev infrastructure (Docker Compose) | done | 2026-11-21 | d1e8aa3 | rs0 ok; ACL verified; Prisma connect not tested; see D8 |
@@ -79,6 +79,9 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **D8 (T1.2):** Mosquitto healthcheck is `pidof mosquitto`. `mosquitto_passwd -c` fails on a pre-created bind-mounted file: README says `touch` then add users without `-c`. On Git Bash for Windows prefix docker commands with `MSYS_NO_PATHCONV=1`. Dev creds live in git-ignored `infra/dev/.dev-credentials.local`. Dev containers left running.
 
 - **D9 (T1.1/T1.3):** Extra devDeps outside plan 4.2: `tsx`, `@types/node` (contracts; `tsx` runs `export:schema`), `@types/node` (device-sim). `tsx` was already in the API devDeps. Extras in contracts: `telemetryWireToPoint`, `ERROR_CODES`/`httpStatusFor`, socket helpers `makeEnvelope`/`deviceRoom`. `parseStatusPayload` returns null when JSON `device_id` differs from topic id. Pin `typescript ~5.9.3` and `tsup ^8.5.1`: a nested `typescript@7` broke tsup d.ts build.
+
+- **D10 (T0.4/T0.5/T0.7):** T0.4 and T0.5 share one commit (changes interleave). New `src/createApp.ts` builds app without listen; `app.ts` is entry. ESLint `import/no-relative-parent-imports` turned off (flagged tsconfig aliases, ~53 false errors; `no-restricted-imports` still blocks `../`). Added `SUCCESS_STATUS="success"`/`FAILED_STATUS="error"` (were referenced but undefined). Master GET endpoints now return 200 not 201. `handleError` now returns `errorCode`. mongodb-memory-server downloads ~800 MB mongod once (cached). Extra deps: none beyond plan 4.2.
+- **Security notes (pre-existing, not in plan scope):** `device.routes.ts`, `farm.routes.ts`, `master.routers.ts` and `/auth/me` have `authenticateToken` commented out (unauthenticated). Consumer `auth.service` signs 30-day tokens. Flag for owner before production.
 
 ## Questions for owner
 

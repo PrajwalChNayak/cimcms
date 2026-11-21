@@ -1,9 +1,11 @@
+import type { Consumer } from '@prisma/client';
 import ConsumerRepository from '@/repositories/consumer.repository';
 import Argon from '@/utils/argon.utils';
+import { AuthenticationError } from '@/utils/errors/custom.errors';
 import jwt from 'jsonwebtoken';
 
 class AuthService {
-  static #_generateAccessToken(subject: { email: string; userId: number }): string {
+  static #_generateAccessToken(subject: { email: string; userId: string }): string {
     return jwt.sign(
       {
         email: subject.email,
@@ -25,8 +27,8 @@ class AuthService {
     password: string;
     mobileNumber?: string;
   }): Promise<{
-    userId: number;
-    name: string;
+    userId: string;
+    name: string | null;
     email: string;
     mobileNumber?: string;
   }> {
@@ -36,7 +38,7 @@ class AuthService {
       name: userName,
       email: userEmail,
       mobileNumber: userMobile,
-    } = await ConsumerRepository.create({
+    } = await ConsumerRepository.create<Consumer>({
       name,
       email,
       password: hashedPassword,
@@ -54,17 +56,17 @@ class AuthService {
     authToken: string;
     id: string;
   }> {
-    const user = await ConsumerRepository.findOne({
+    const user = await ConsumerRepository.findOne<Consumer>({
       email,
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new AuthenticationError('Invalid email or password');
     }
 
     const isPasswordValid = await Argon.verifyPassword(password, user.password);
     if (!isPasswordValid) {
-      throw new Error('Invalid password');
+      throw new AuthenticationError('Invalid email or password');
     }
     await ConsumerRepository.updateById(user.id, { lastLogin: new Date() });
     const authToken = AuthService.#_generateAccessToken({
@@ -75,23 +77,23 @@ class AuthService {
     return { authToken, id: user.id };
   }
 
-  static async refreshToken(subject: { email: string; userId: number }): Promise<{
+  static async refreshToken(subject: { email: string; userId: string }): Promise<{
     authToken: string;
   }> {
     const authToken = AuthService.#_generateAccessToken(subject);
     return { authToken };
   }
 
-  static async me(userId?: number): Promise<{
-    userId: number;
-    name: string;
+  static async me(userId?: string): Promise<{
+    userId: string;
+    name: string | null;
     email: string;
     mobileNumber?: string;
   } | null> {
     if (!userId) {
       return null;
     }
-    const user = await ConsumerRepository.findById(userId);
+    const user = await ConsumerRepository.findById<Consumer>(userId);
     if (!user) {
       return null;
     }

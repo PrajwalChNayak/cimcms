@@ -1,4 +1,7 @@
 export const Constants = {
+  // response status values (API_ARCHITECTURE §9: "status": "success")
+  SUCCESS_STATUS: "success",
+  FAILED_STATUS: "error",
   //api related error messages
   SUCCESS_MESSAGE: "Api over all success status",
   FAILED_MESSAGE: "Api over all error status",

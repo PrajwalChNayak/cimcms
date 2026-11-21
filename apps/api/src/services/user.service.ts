@@ -1,16 +1,16 @@
 import Argon from '@/utils/argon.utils';
 import { type FieldNameDetail } from '@middleware/fileuploader.middleware';
-import type { Permission, Role } from '@prisma/client';
+import type { Permission, Role, User } from '@prisma/client';
 import PermissionRepository from '@repositories/permission.repository';
 import RoleRepository from '@repositories/role.repository';
 import RolePermissionRepository from '@repositories/rolepermission.repository';
 import UserRepository from '@repositories/user.repository';
 import UserRoleRepository from '@repositories/userrole.repository';
 import { Constants } from '@utils/constant.utils';
-import PaginationUtils from '@utils/pagination.utils';
+import PaginationUtils, { type PaginationResult } from '@utils/pagination.utils';
+import { AuthenticationError } from '@utils/errors/custom.errors';
 import jwt from 'jsonwebtoken';
 
-type ReqUser = { userId: number };
 
 const userImageField = (ownerId?: number): FieldNameDetail[] => [
   {
@@ -34,7 +34,7 @@ class UserService {
     limit: number,
     name?: string,
     status?: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<PaginationResult<Role>> {
     const { page: p, limit: l } = PaginationUtils.getPaginationParams({
       page: String(page),
       limit: String(limit),
@@ -55,16 +55,16 @@ class UserService {
     id: string,
     data: { name?: string; status?: string },
   ): Promise<Role> {
-    return RoleRepository.updateById<Role>(id as unknown as number, data);
+    return RoleRepository.updateById<Role>(id, data);
   }
 
   static async deleteUserRole(id: string): Promise<Role> {
     await RoleRepository.assertNotSystem(id);
-    return RoleRepository.softDelete<Role>(id as unknown as number);
+    return RoleRepository.softDelete<Role>(id);
   }
 
   static async toggleUserRole(id: string, currentStatus: string): Promise<Role> {
-    return RoleRepository.toggleStatus<Role>(id as unknown as number, currentStatus);
+    return RoleRepository.toggleStatus<Role>(id, currentStatus);
   }
 
   // ─── Permission CRUD ──────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ class UserService {
     limit: number,
     name?: string,
     status?: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<PaginationResult<Permission>> {
     const { page: p, limit: l } = PaginationUtils.getPaginationParams({
       page: String(page),
       limit: String(limit),
@@ -95,17 +95,17 @@ class UserService {
     id: string,
     data: { name?: string; status?: string },
   ): Promise<Permission> {
-    return PermissionRepository.updateById<Permission>(id as unknown as number, data);
+    return PermissionRepository.updateById<Permission>(id, data);
   }
 
   static async deletePermission(id: string): Promise<Permission> {
     await PermissionRepository.assertNotSystem(id);
-    return PermissionRepository.softDelete<Permission>(id as unknown as number);
+    return PermissionRepository.softDelete<Permission>(id);
   }
 
   static async togglePermission(id: string, currentStatus: string): Promise<Permission> {
     return PermissionRepository.toggleStatus<Permission>(
-      id as unknown as number,
+      id,
       currentStatus,
     );
   }
@@ -178,13 +178,13 @@ class UserService {
     limit: number = 10,
     name?: string,
     status?: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<PaginationResult<Partial<User>>> {
     const searchParams = {
       ...(name && { name }),
       ...(status && { status }),
     };
 
-    return UserRepository.findAll(page, limit, searchParams, {
+    return UserRepository.findAll<Partial<User>>(page, limit, searchParams, {
       select: {
         id: true,
         name: true,
@@ -207,11 +207,11 @@ class UserService {
     id: string,
     data: { name?: string; email?: string; status?: string },
   ): Promise<Record<string, unknown>> {
-    return UserRepository.updateById(id as unknown as number, data);
+    return UserRepository.updateById(id, data);
   }
 
   static async deleteUser(id: string): Promise<Record<string, unknown>> {
-    return UserRepository.softDelete(id as unknown as number);
+    return UserRepository.softDelete(id);
   }
 
   // ─── User Auth ────────────────────────────────────────────────────────────
@@ -222,18 +222,18 @@ class UserService {
   ): Promise<{ authToken: string; id: string }> {
     const user = await UserRepository.findByEmail(email);
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new AuthenticationError('Invalid email or password');
     }
     if (
       user.status === 'INACTIVE' ||
       user.status === 'BLOCK' ||
       user.status === 'DELETED'
     ) {
-      throw new Error('Account is not active');
+      throw new AuthenticationError('Account is not active');
     }
     const isValid = await Argon.verifyPassword(password, user.password);
     if (!isValid) {
-      throw new Error('Invalid email or password');
+      throw new AuthenticationError('Invalid email or password');
     }
 
     // Load roles + permissions once at login and bake them into the token
@@ -270,7 +270,7 @@ class UserService {
       throw new Error('User not found');
     }
     const hashedPassword = await Argon.hashPassword(newPassword);
-    return UserRepository.updateById(user.id as unknown as number, {
+    return UserRepository.updateById(user.id, {
       password: hashedPassword,
     });
   }

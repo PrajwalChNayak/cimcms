@@ -1,6 +1,7 @@
 import UserController from '@/controllers/user.controller';
 import authenticateToken from '@/middleware/auth.middleware';
 import { requireRole } from '@/middleware/permission.middleware';
+import { loginLimiter } from '@/security/limiter.security';
 import { Router } from 'express';
 
 export default (router: Router): void => {
@@ -56,7 +57,7 @@ export default (router: Router): void => {
     UserController.deleteUser,
   );
 
-  router.post('/user/login', UserController.login);
+  router.post('/user/login', loginLimiter, UserController.login);
   router.post('/user/reset-password', authenticateToken, UserController.resetPassword);
 
   router.post(

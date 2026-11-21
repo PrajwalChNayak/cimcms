@@ -33,9 +33,8 @@ class FarmService {
   static async updateFarm(id: string, data: Partial<FarmCreateInput>): Promise<Farm> {
     const existing = await FarmRepository.findOne<Farm>({ id });
     if (!existing) throw new NotFoundError('Farm not found');
-    // Type workaround because BaseRepository updateById is typed for number
     return FarmRepository.updateById<Farm>(
-      id as unknown as number,
+      id,
       data as Record<string, unknown>,
     );
   }
@@ -43,7 +42,7 @@ class FarmService {
   static async deleteFarm(id: string): Promise<Farm> {
     const existing = await FarmRepository.findOne<Farm>({ id });
     if (!existing) throw new NotFoundError('Farm not found');
-    return FarmRepository.deleteById<Farm>(id as unknown as number, false);
+    return FarmRepository.deleteById<Farm>(id, false);
   }
 }
 

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import logger from "@utils/logger.utils";
 
 declare global {
@@ -6,12 +6,12 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-const prismaOptions = {
+const prismaOptions: Prisma.PrismaClientOptions = {
   datasourceUrl: process.env.DATABASE_URL,
   log:
     process.env.NODE_ENV === "production"
-      ? (["error"] as const)
-      : (["query", "info", "warn", "error"] as const),
+      ? ["error"]
+      : ["query", "info", "warn", "error"],
 };
 
 let prisma: PrismaClient;

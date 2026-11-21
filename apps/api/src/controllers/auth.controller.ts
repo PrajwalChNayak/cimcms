@@ -1,5 +1,6 @@
 import AuthService from '@/services/auth.service';
 import { handleSuccess } from '@/utils/responsehandler/index.utils';
+import { AuthenticationError } from '@/utils/errors/custom.errors';
 import { Request, Response } from 'express';
 
 class AuthController {
@@ -25,9 +26,11 @@ class AuthController {
 
   static async refreshToken(req: Request, res: Response): Promise<void> {
     const subject = req.subject;
-
-    console.log('Received request to refresh token for subject:', req);
-    const result = await AuthService.refreshToken(subject);
+    if (!subject) throw new AuthenticationError('Authentication required');
+    const result = await AuthService.refreshToken({
+      email: subject.email,
+      userId: subject.userId,
+    });
     handleSuccess(res, result, 'Token refreshed successfully');
   }
 

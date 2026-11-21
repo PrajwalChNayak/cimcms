@@ -1,5 +1,6 @@
 import MasterService from '@/services/master.service';
-import { handleDataCreation } from '@/utils/responsehandler/index.utils';
+import { handleDataCreation, handleDataRetrieval } from '@/utils/responsehandler/index.utils';
+import type { Request, Response } from 'express';
 
 class MasterController {
   static async createMasterTypeConstant(req: Request, res: Response): Promise<void> {
@@ -22,14 +23,14 @@ class MasterController {
       value,
       page,
       limit,
-    });
+    } as Parameters<typeof MasterService.getMasterTypeConstants>[0]);
 
-    handleDataCreation(res, result, 'Master type constants fetched successfully');
+    handleDataRetrieval(res, result, 'Master type constants fetched successfully');
   }
 
   static async getMasterTypeConstantTypes(req: Request, res: Response): Promise<void> {
     const result = await MasterService.getMasterTypeConstantTypes();
-    handleDataCreation(res, result, 'Master type constant types fetched successfully');
+    handleDataRetrieval(res, result, 'Master type constant types fetched successfully');
   }
 }
 
