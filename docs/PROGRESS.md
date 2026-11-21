@@ -14,7 +14,7 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T0.1 | Create monorepo and import existing repos | done | 2026-11-21 | 2a335c7 (initial), 9b45ab5 (api subtree), 2d54d91 (web subtree), docs commit `chore: T0.1 add docs and progress file` | See deviations D1–D4 |
 | T0.2 | npm workspaces | done | 2026-11-21 | see `git log --grep T0.2` | See deviations D5-D6 |
 | T0.3 | Remove committed secrets | done | 2026-11-21 | see `git log --grep T0.3` | Docker build ok, image has no .env; rotation is HUMAN-ONLY (Q3); see D7 |
-| T1.1 | packages/contracts | todo | | | Runs before T0.4 (execution order) |
+| T1.1 | packages/contracts | done | 2026-11-21 | see `git log --grep T1.1` | 37/37 tests, 6 JSON Schemas; Zod 4.6.7 (Q2 default); see D9 |
 | T0.4 | API: middleware order, proxy trust, CORS, rate limits | todo | | | Needs senior review |
 | T0.5 | API: fix known code gaps | todo | | | |
 | T0.6 | API: request ID and Zod validation middleware | todo | | | |
@@ -22,7 +22,7 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T0.8 | Web: test setup | done | 2026-11-21 | 7499d64 | `npm test -w apps/web` 1/1 pass |
 | T0.9 | CI | todo | | | |
 | T1.2 | Dev infrastructure (Docker Compose) | done | 2026-11-21 | d1e8aa3 | rs0 ok; ACL verified; Prisma connect not tested; see D8 |
-| T1.3 | Device simulator tools/device-sim | todo | | | |
+| T1.3 | Device simulator tools/device-sim | done | 2026-11-21 | see `git log --grep T1.3` | 14/14 tests; manual run vs dev broker not done; see D9 |
 | T2.1 | Prisma models and time-series init | todo | | | |
 | T2.2 | RBAC and device seed | todo | | | |
 | T2.3 | Auth: short access token, refresh cookie, /user/me | todo | | | Needs senior review |
@@ -77,6 +77,8 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **Parallel run (2026-11-21):** at the user's request, independent tasks run in parallel agents on disjoint directories; the parent commits per task.
 
 - **D8 (T1.2):** Mosquitto healthcheck is `pidof mosquitto`. `mosquitto_passwd -c` fails on a pre-created bind-mounted file: README says `touch` then add users without `-c`. On Git Bash for Windows prefix docker commands with `MSYS_NO_PATHCONV=1`. Dev creds live in git-ignored `infra/dev/.dev-credentials.local`. Dev containers left running.
+
+- **D9 (T1.1/T1.3):** Extra devDeps outside plan 4.2: `tsx`, `@types/node` (contracts; `tsx` runs `export:schema`), `@types/node` (device-sim). `tsx` was already in the API devDeps. Extras in contracts: `telemetryWireToPoint`, `ERROR_CODES`/`httpStatusFor`, socket helpers `makeEnvelope`/`deviceRoom`. `parseStatusPayload` returns null when JSON `device_id` differs from topic id. Pin `typescript ~5.9.3` and `tsup ^8.5.1`: a nested `typescript@7` broke tsup d.ts build.
 
 ## Questions for owner
 
