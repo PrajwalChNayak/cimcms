@@ -7,6 +7,7 @@ import { startSimulator } from './simulator.js';
 const USAGE = `Usage: npm run sim -- --url mqtt://localhost:1883 --device LED-01 --username LED-01 --password-env SIM_PASSWORD
   [--latency 200] [--fail-rate 0] [--mode MANUAL] [--heartbeat 30]
   [--ignore-commands] [--reject-all <REASON>] [--hardware] [--interactive]
+  [--no-require-config] [--rtc-sync-fails] [--reject-config <REASON>] [--executor-interval 60000]
 The password is read from the environment variable named by --password-env (never from argv).
 Interactive commands: toggle <n> | all on | all off | mode <MODE> | crash | reboot | quit`;
 
@@ -32,6 +33,10 @@ async function main(): Promise<void> {
       'ignore-commands': { type: 'boolean', default: false },
       'reject-all': { type: 'string' },
       hardware: { type: 'boolean', default: false },
+      'no-require-config': { type: 'boolean', default: false },
+      'rtc-sync-fails': { type: 'boolean', default: false },
+      'reject-config': { type: 'string' },
+      'executor-interval': { type: 'string', default: '60000' },
       interactive: { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
@@ -67,6 +72,10 @@ async function main(): Promise<void> {
     ignoreCommands: values['ignore-commands'],
     ...(values['reject-all'] !== undefined && { rejectAll: values['reject-all'] }),
     hardware: values.hardware,
+    requireConfig: !values['no-require-config'],
+    rtcSyncFails: values['rtc-sync-fails'],
+    ...(values['reject-config'] !== undefined && { rejectConfig: values['reject-config'] }),
+    executorIntervalMs: Number(values['executor-interval']),
     log: out,
   });
   out(`simulator ${values.device} online (boot_id ${sim.state.bootId})`);

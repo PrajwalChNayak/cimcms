@@ -27,10 +27,40 @@ const allNavigationItems: NavItem[] = [
         icon: icon("M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"),
     },
     {
+        label: "Rooms",
+        path: "/rooms",
+        permissions: ["ROOM_READ"],
+        icon: icon("M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"),
+    },
+    {
+        label: "System",
+        path: "/system",
+        permissions: ["DEVICE_DIAGNOSTICS"],
+        icon: icon("M5 12h14M12 5v14M4 4h16v16H4z"),
+    },
+    {
+        label: "Schedules",
+        path: "/schedules",
+        permissions: ["SCHEDULE_READ"],
+        icon: icon("M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"),
+    },
+    {
+        label: "Experiments",
+        path: "/experiments",
+        permissions: ["EXPERIMENT_READ"],
+        icon: icon("M9 3v6.5L4.5 18a1.5 1.5 0 001.3 2.25h12.4A1.5 1.5 0 0019.5 18L15 9.5V3M8 3h8"),
+    },
+    {
         label: "Audit",
         path: "/audit",
         permissions: ["AUDIT_READ"],
         icon: icon("M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
+    },
+    {
+        label: "Reports",
+        path: "/reports",
+        permissions: ["REPORT_EXPORT"],
+        icon: icon("M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"),
     },
     {
         label: "MasterTypeConstant",

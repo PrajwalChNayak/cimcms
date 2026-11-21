@@ -11,6 +11,7 @@ import {
   type AckWire,
   type CommandAction,
   type CommandDto,
+  type CommandSource,
   type CommandStatus,
   type DeviceType,
   type SubmitCommandBody,
@@ -23,6 +24,7 @@ import { Prisma, type Command } from "@prisma/client";
 import CommandRepository from "@repositories/command.repository";
 import AuditService from "@services/audit.service";
 import DeviceStateService from "@services/devicestate.service";
+import ReadinessService from "@services/readiness.service";
 import { AppError } from "@utils/errors/custom.errors";
 import logger from "@utils/logger.utils";
 import PaginationUtils from "@utils/pagination.utils";
@@ -34,9 +36,20 @@ export interface CommandSubject {
   permissions: string[];
 }
 
+/** Body of a command submit: the REST schema plus actions that have their own route. */
+export type CommandInput = SubmitCommandBody | { action: "RTC_SYNC_NOW" };
+
 export interface SubmitMeta {
   requestId?: string | null;
   ip?: string | null;
+}
+
+/** Used by backend features (experiments) that issue commands on behalf of a user. */
+export interface SubmitOptions {
+  /** Command source on the wire (default `web`). */
+  source?: CommandSource;
+  /** Skips the SET_MODE permission, role and readiness rules: the calling service already checked its own. */
+  internal?: boolean;
 }
 
 export interface SubmitResult {
@@ -62,6 +75,15 @@ const isUniqueViolation = (e: unknown): boolean =>
   e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 
 const RELAY_ACTIONS: readonly string[] = ["SET_RELAY", "SET_ALL_RELAYS"];
+
+/** TODO(owner-decision O-4): a technician (no ADMIN/OPERATOR role) may only enter or leave MAINTENANCE. */
+const isTechnicianOnly = (subject: CommandSubject): boolean => {
+  const roles = subject.roles ?? [];
+  return (
+    roles.includes("TECHNICIAN") &&
+    !roles.some((r) => r === "ADMIN" || r === "SUPER_ADMIN" || r === "OPERATOR")
+  );
+};
 
 /** Creates, publishes and tracks device commands (plan section 8). */
 export default class CommandService {
@@ -133,9 +155,10 @@ export default class CommandService {
   static async submit(
     subject: CommandSubject,
     deviceObjectId: string,
-    body: SubmitCommandBody,
+    body: CommandInput,
     idempotencyKey: string | undefined,
     meta: SubmitMeta = {},
+    opts: SubmitOptions = {},
   ): Promise<SubmitResult> {
     // 1. Idempotency
     if (idempotencyKey) {
@@ -163,6 +186,15 @@ export default class CommandService {
       throw err(403, "FORBIDDEN", "Missing permission DEVICE_COMMAND_BULK");
     }
 
+    // 3b. Mode changes need their own permission (T5.2)
+    if (action === "SET_MODE" && !opts.internal && !subject.permissions.includes("DEVICE_MODE_SET")) {
+      throw err(403, "FORBIDDEN", "Missing permission DEVICE_MODE_SET");
+    }
+
+    if (action === "RTC_SYNC_NOW" && !opts.internal && !subject.permissions.includes("DEVICE_DIAGNOSTICS")) {
+      throw err(403, "FORBIDDEN", "Missing permission DEVICE_DIAGNOSTICS");
+    }
+
     // 4. Liveness
     const state = await DeviceStateService.get(device.deviceId);
     if (!state || state.liveness === "OFFLINE") {
@@ -173,6 +205,7 @@ export default class CommandService {
     }
 
     // 5. Mode policy (D-11)
+    // TODO(owner-decision O-3): manual relay commands stay blocked in AUTO and EXPERIMENT.
     if (RELAY_ACTIONS.includes(action)) {
       switch (state.mode) {
         case "MANUAL":
@@ -188,6 +221,15 @@ export default class CommandService {
         default:
           throw err(409, "DEVICE_STALE", "Device mode is unknown");
       }
+    }
+
+    if (action === "SET_MODE" && !opts.internal) {
+      await CommandService.checkSetMode(
+        subject,
+        device.deviceId,
+        state.mode,
+        (body as { mode: string }).mode,
+      );
     }
 
     // 6. In-flight limit
@@ -215,7 +257,7 @@ export default class CommandService {
           deviceId: device.deviceId,
           action,
           params: params as Prisma.InputJsonValue,
-          source: "web",
+          source: opts.source ?? "web",
           issuedById: subject.userId,
           issuedByEmail: subject.email,
           requestId: meta.requestId ?? null,
@@ -247,6 +289,38 @@ export default class CommandService {
       requestId: meta.requestId ?? null,
     });
     return { command: dto, created: true };
+  }
+
+  /**
+   * Rules for a web SET_MODE (plan T5.2): a technician may only enter or leave
+   * MAINTENANCE (O-4); AUTO needs a ready schedule config, EXPERIMENT a READY experiment.
+   * Leaving MAINTENANCE is never automatic: it always takes an explicit SET_MODE.
+   */
+  private static async checkSetMode(
+    subject: CommandSubject,
+    deviceId: string,
+    current: string | null,
+    target: string,
+  ): Promise<void> {
+    if (isTechnicianOnly(subject)) {
+      const allowed = target === "MAINTENANCE" || (current === "MAINTENANCE" && target === "MANUAL");
+      if (!allowed) {
+        throw err(403, "FORBIDDEN", "Technicians may only enter or leave MAINTENANCE mode");
+      }
+    }
+    if (target === "AUTO" || target === "EXPERIMENT") {
+      const readiness = await ReadinessService.forDevice(deviceId);
+      if (target === "AUTO" && !readiness.auto.ready) {
+        throw new AppError("AUTO mode is not configured for this device", 409, "AUTO_NOT_CONFIGURED", {
+          reasons: readiness.auto.reasons,
+        });
+      }
+      if (target === "EXPERIMENT" && !readiness.experiment.ready) {
+        throw new AppError("No ready experiment for this device", 409, "EXPERIMENT_NOT_CONFIGURED", {
+          reasons: readiness.experiment.reasons,
+        });
+      }
+    }
   }
 
   /**
@@ -288,7 +362,7 @@ export default class CommandService {
         deviceId: row.deviceId,
         action: row.action as CommandAction,
         params: (row.params ?? {}) as Record<string, unknown>,
-        source: row.source as "web" | "system",
+        source: row.source as CommandSource,
         issuedAt: row.issuedAt.toISOString(),
         expiresAt: row.expiresAt.toISOString(),
       });

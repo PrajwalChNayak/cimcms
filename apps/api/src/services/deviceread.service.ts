@@ -12,6 +12,7 @@ import prisma from "@models/prisma.client";
 import type { AuditLog, Device, Prisma, RelayStateChange } from "@prisma/client";
 import TelemetryRepository from "@repositories/telemetry.repository";
 import DeviceStateService from "@services/devicestate.service";
+import ReadinessService from "@services/readiness.service";
 import { AppError } from "@utils/errors/custom.errors";
 import PaginationUtils from "@utils/pagination.utils";
 
@@ -93,6 +94,12 @@ export default class DeviceReadService {
   static async state(id: string): Promise<DeviceStateDto> {
     const device = await DeviceReadService.deviceByObjectId(id);
     return DeviceStateService.snapshot(device.deviceId, device.deviceType, device.updatedAt);
+  }
+
+  /** AUTO / EXPERIMENT readiness of a device (T5.2). */
+  static async readiness(id: string) {
+    const device = await DeviceReadService.deviceByObjectId(id);
+    return ReadinessService.forDevice(device.deviceId);
   }
 
   /** Newest first, default window = last 24 h. */

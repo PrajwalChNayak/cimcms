@@ -204,10 +204,10 @@ describe("RetentionJob", () => {
 });
 
 describe("startJobs / stopJobs", () => {
-  it("starts and stops all three jobs without leaking timers", async () => {
+  it("starts and stops all four jobs (commands, liveness, retention, experiments) without leaking timers", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
     startJobs();
-    expect(vi.getTimerCount()).toBe(3);
+    expect(vi.getTimerCount()).toBe(4);
     stopJobs();
     expect(vi.getTimerCount()).toBe(0);
   });

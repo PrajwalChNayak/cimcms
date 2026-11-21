@@ -8,7 +8,7 @@ export const DEVICE_TYPES = {
     readOnly: false,
     staleAfterMs: STALE_AFTER_MS,
     handles: ['status', 'telemetry', 'ack', 'event'],
-    supportedActions: MVP_COMMAND_ACTIONS, // Phase 5 adds SET_MODE, RTC_SYNC_NOW
+    supportedActions: MVP_COMMAND_ACTIONS,
   },
   HUMIDIFIER: {
     topicSegment: 'humidifier',
@@ -39,3 +39,9 @@ export const DEVICE_TYPES = {
   },
 } as const;
 export type DeviceType = keyof typeof DEVICE_TYPES;
+
+/** Channel count of a device type, or null when the type has no relay channels or is unknown. */
+export function getDriverChannelCount(type: string): number | null {
+  if (!Object.prototype.hasOwnProperty.call(DEVICE_TYPES, type)) return null;
+  return DEVICE_TYPES[type as DeviceType].channelCount;
+}

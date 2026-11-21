@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { ExperimentUpdatedData } from './dto/experiments.js';
+import type { ScheduleUpdatedData } from './dto/schedules.js';
 import type {
   CommandDto,
   DeviceEventDto,
@@ -48,8 +50,8 @@ export interface ServerToClientEvents {
   'device:connectivity': (e: SocketEnvelope<ConnectivityData>) => void;
   'device:event': (e: SocketEnvelope<DeviceEventDto>) => void;
   'command:updated': (e: SocketEnvelope<CommandDto>) => void;
-  'schedule:updated': (e: SocketEnvelope<unknown>) => void;
-  'experiment:updated': (e: SocketEnvelope<unknown>) => void;
+  'schedule:updated': (e: SocketEnvelope<ScheduleUpdatedData>) => void;
+  'experiment:updated': (e: SocketEnvelope<ExperimentUpdatedData>) => void;
 }
 export interface ClientToServerEvents {
   'subscribe:device': (p: { deviceId: string }, cb: (r: SubscribeAck) => void) => void;

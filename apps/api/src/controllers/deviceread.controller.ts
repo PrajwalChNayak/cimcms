@@ -16,6 +16,10 @@ class DeviceReadController {
     handleDataRetrieval(res, await DeviceReadService.state(id(req)), "Device state fetched successfully");
   }
 
+  static async readiness(req: Request, res: Response): Promise<void> {
+    handleDataRetrieval(res, await DeviceReadService.readiness(id(req)), "Device readiness fetched successfully");
+  }
+
   static async telemetry(req: Request, res: Response): Promise<void> {
     const result = await DeviceReadService.telemetry(id(req), query(req));
     handleDataRetrieval(res, result, "Telemetry fetched successfully");

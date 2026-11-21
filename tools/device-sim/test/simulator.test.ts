@@ -34,6 +34,11 @@ afterEach(async () => {
   for (const o of observers) await o.endAsync(true).catch(() => undefined);
   sims = [];
   observers = [];
+  // Retained configs must not leak into the next test.
+  const cleaner = mqtt.connect(url, { clientId: `clean-${randomUUID()}` });
+  await new Promise<void>((r) => cleaner.once('connect', () => r()));
+  await cleaner.publishAsync(topicFor('LED_CONTROLLER', DEV, 'config'), '', { qos: 1, retain: true });
+  await cleaner.endAsync();
 });
 afterAll(async () => {
   await new Promise<void>((r) => broker.close(() => r()));
@@ -259,6 +264,59 @@ describe('device simulator', () => {
     expect(obs.msgs.some((m) => m.topic === T('event') && m.json?.type === 'MODE_CHANGED')).toBe(true);
   });
 
+  it('RTC_SYNC_NOW updates the RTC block of the next telemetry; rtcSyncFails answers FAILED', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const sim = await boot();
+    const ok = command({ action: 'RTC_SYNC_NOW', relay: undefined, state: undefined });
+    await send(obs.client, ok);
+    await waitFor(() => acksFor(obs.msgs, ok.command_id as string).length >= 2 || undefined);
+    const tele = obs.msgs.filter((m) => m.topic === T('telemetry')).map((m) => telemetryWireSchema.parse(m.json));
+    expect(tele[tele.length - 1]!.rtc).toMatchObject({
+      valid: true,
+      sync_source: 'NTP-SIM',
+      last_sync_result: 'OK',
+      drift_ms: 0,
+    });
+    expect(tele[tele.length - 1]!.rtc?.last_sync_utc).toBeDefined();
+    await sim.crash();
+
+    const obs2 = await observer(`cimcms/led/${DEV}/#`);
+    await boot({ rtcSyncFails: true });
+    const bad = command({ action: 'RTC_SYNC_NOW', relay: undefined, state: undefined });
+    await send(obs2.client, bad);
+    await waitFor(() => acksFor(obs2.msgs, bad.command_id as string).length >= 2 || undefined);
+    expect(acksFor(obs2.msgs, bad.command_id as string).map((m) => m.json?.result)).toEqual(['ACCEPTED', 'FAILED']);
+    expect(acksFor(obs2.msgs, bad.command_id as string)[1]!.json).toMatchObject({ reason: 'RTC_SYNC_FAILED' });
+  });
+
+  it('SET_MODE AUTO / EXPERIMENT is REJECTED without a config unless requireConfig is false', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const sim = await boot();
+    const auto = command({ action: 'SET_MODE', mode: 'AUTO', relay: undefined, state: undefined });
+    const exp = command({ action: 'SET_MODE', mode: 'EXPERIMENT', relay: undefined, state: undefined });
+    await send(obs.client, auto);
+    await send(obs.client, exp);
+    await waitFor(() => acksFor(obs.msgs, exp.command_id as string).length >= 1 || undefined);
+    expect(acksFor(obs.msgs, auto.command_id as string)[0]!.json).toMatchObject({
+      result: 'REJECTED',
+      reason: 'AUTO_NOT_CONFIGURED',
+    });
+    expect(acksFor(obs.msgs, exp.command_id as string)[0]!.json).toMatchObject({
+      result: 'REJECTED',
+      reason: 'EXPERIMENT_NOT_CONFIGURED',
+    });
+    expect(sim.state.mode).toBe('MANUAL');
+    await sim.crash();
+
+    const obs2 = await observer(`cimcms/led/${DEV}/#`);
+    const free = await boot({ requireConfig: false });
+    const again = command({ action: 'SET_MODE', mode: 'AUTO', relay: undefined, state: undefined });
+    await send(obs2.client, again);
+    await waitFor(() => acksFor(obs2.msgs, again.command_id as string).length >= 1 || undefined);
+    expect(acksFor(obs2.msgs, again.command_id as string)[0]!.json).toMatchObject({ result: 'EXECUTED' });
+    expect(free.state.mode).toBe('AUTO');
+  });
+
   it('keypad toggle emits KEYPAD RELAY_CHANGED', async () => {
     const obs = await observer(`cimcms/led/${DEV}/event`);
     const sim = await boot();
@@ -286,5 +344,218 @@ describe('device simulator', () => {
     const late = await observer(T('status'));
     const m = await waitFor(() => late.msgs[0]);
     expect(m.json).toMatchObject({ state: 'offline' });
+  });
+});
+
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+function configWire(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schema_version: 1,
+    device_id: DEV,
+    config_version: 1,
+    issued_at_utc: new Date().toISOString(),
+    timezone: 'Asia/Kolkata',
+    tz_offset_minutes: 330,
+    auto: {
+      effective_from: '2026-11-01',
+      effective_to: null,
+      channels: [
+        { relay: 1, windows: [{ days: WEEKDAYS, on: '06:00', off: '18:00' }] },
+        { relay: 2, windows: [{ days: WEEKDAYS, on: '22:00', off: '06:00' }] },
+      ],
+    },
+    experiment: null,
+    ...over,
+  };
+}
+
+const sendConfig = (client: MqttClient, c: Record<string, unknown> | string): Promise<unknown> =>
+  client.publishAsync(topicFor('LED_CONTROLLER', DEV, 'config'), typeof c === 'string' ? c : JSON.stringify(c), {
+    qos: 1,
+    retain: true,
+  });
+
+const configEvents = (msgs: Msg[]): Msg[] =>
+  msgs.filter((m) => m.topic === T('event') && m.json?.type === 'CONFIG_APPLIED');
+
+const relayEvents = (msgs: Msg[]): Msg[] =>
+  msgs.filter((m) => m.topic === T('event') && m.json?.type === 'RELAY_CHANGED');
+
+// 2026-11-23 is a Monday. IST = UTC + 5:30.
+const at = (iso: string) => (): Date => new Date(iso);
+
+describe('device simulator: config and executor (T5.3)', () => {
+  it('applies a retained config, reports CONFIG_APPLIED and config_version in telemetry', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    await sendConfig(pub.client, configWire());
+    const sim = await boot({ clock: at('2026-11-23T05:00:00Z'), executorIntervalMs: 0 });
+    const ev = await waitFor(() => configEvents(obs.msgs)[0]);
+    expect(eventWireSchema.parse(ev.json).data).toEqual({ config_version: 1, result: 'APPLIED' });
+    expect(sim.state.config?.config_version).toBe(1);
+    const tele = await waitFor(() => {
+      const t = obs.msgs
+        .filter((m) => m.topic === T('telemetry'))
+        .map((m) => telemetryWireSchema.parse(m.json))
+        .filter((x) => x.config_version === 1);
+      return t[t.length - 1];
+    });
+    expect(tele.auto_ready).toBe(true);
+    // clean the retained config for the other tests
+    await sendConfig(pub.client, '');
+  });
+
+  it('rejects invalid, foreign and (on request) every config; ignores an older version', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    const sim = await boot({ executorIntervalMs: 0 });
+    await sendConfig(pub.client, '{"config_version":4}');
+    await sendConfig(pub.client, configWire({ device_id: 'LED-99', config_version: 5 }));
+    await waitFor(() => configEvents(obs.msgs).length >= 2 || undefined);
+    expect(configEvents(obs.msgs).map((m) => (m.json?.data as Record<string, unknown>).reason)).toEqual([
+      'INVALID_CONFIG',
+      'WRONG_DEVICE',
+    ]);
+    expect(configEvents(obs.msgs)[0]!.json?.data).toMatchObject({ config_version: 4, result: 'REJECTED' });
+
+    await sendConfig(pub.client, configWire({ config_version: 7 }));
+    await waitFor(() => configEvents(obs.msgs).length >= 3 || undefined);
+    await sendConfig(pub.client, configWire({ config_version: 6 })); // older than the applied 7
+    await new Promise((r) => setTimeout(r, 150));
+    expect(configEvents(obs.msgs)).toHaveLength(3);
+    expect(sim.state.config?.config_version).toBe(7);
+    await sim.crash();
+
+    await sendConfig(pub.client, '');
+    const obs2 = await observer(`cimcms/led/${DEV}/#`);
+    await boot({ rejectConfig: 'NVS_FULL', executorIntervalMs: 0 });
+    await sendConfig(pub.client, configWire({ config_version: 8 }));
+    await waitFor(() => configEvents(obs2.msgs).length >= 1 || undefined);
+    expect(configEvents(obs2.msgs)[0]!.json?.data).toEqual({
+      config_version: 8,
+      result: 'REJECTED',
+      reason: 'NVS_FULL',
+    });
+    await sendConfig(pub.client, '');
+  });
+
+  it('keeps the config across a reboot and does not re-announce it', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    const sim = await boot({ executorIntervalMs: 0 });
+    await sendConfig(pub.client, configWire());
+    await waitFor(() => configEvents(obs.msgs).length >= 1 || undefined);
+    await sim.reboot();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(configEvents(obs.msgs)).toHaveLength(1);
+    expect(sim.state.config?.config_version).toBe(1);
+    await sendConfig(pub.client, '');
+  });
+
+  it('AUTO executor: relays follow the windows (SCHEDULE source), including windows across midnight', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    let now = '2026-11-23T05:00:00Z'; // Monday 10:30 IST
+    const sim = await boot({ clock: () => new Date(now), executorIntervalMs: 0 });
+    await sendConfig(pub.client, configWire());
+    await waitFor(() => configEvents(obs.msgs).length >= 1 || undefined);
+
+    const mode = command({ action: 'SET_MODE', mode: 'AUTO', relay: undefined, state: undefined });
+    obs.msgs.length = 0;
+    await send(obs.client, mode);
+    await waitFor(() => acksFor(obs.msgs, mode.command_id as string).length >= 1 || undefined);
+    expect(acksFor(obs.msgs, mode.command_id as string)[0]!.json).toMatchObject({ result: 'EXECUTED' });
+    // 10:30: relay 1 inside 06:00-18:00 -> ON; relay 2 (22:00-06:00) -> OFF
+    expect(sim.state.relays[0]).toBe(true);
+    expect(sim.state.relays[1]).toBe(false);
+    const first = relayEvents(obs.msgs);
+    expect(first).toHaveLength(1);
+    expect(first[0]!.json?.data).toMatchObject({ relay: 1, state: 'ON', source: 'SCHEDULE', command_id: null });
+
+    // Manual commands are refused while AUTO runs
+    const manual = command();
+    await send(obs.client, manual);
+    await waitFor(() => acksFor(obs.msgs, manual.command_id as string).length >= 1 || undefined);
+    expect(acksFor(obs.msgs, manual.command_id as string)[0]!.json).toMatchObject({
+      result: 'REJECTED',
+      reason: 'MODE_POLICY',
+    });
+
+    obs.msgs.length = 0;
+    now = '2026-11-23T17:30:00Z'; // 23:00 IST: relay 1 off, relay 2 on (window starts 22:00)
+    await sim.tick();
+    await waitFor(() => relayEvents(obs.msgs).length >= 2 || undefined);
+    expect(sim.state.relays[0]).toBe(false);
+    expect(sim.state.relays[1]).toBe(true);
+
+    obs.msgs.length = 0;
+    now = '2026-11-23T22:00:00Z'; // Tuesday 03:30 IST: the Monday window 22:00-06:00 still runs
+    await sim.tick();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(relayEvents(obs.msgs)).toHaveLength(0);
+    expect(sim.state.relays[1]).toBe(true);
+
+    now = '2026-11-24T01:00:00Z'; // Tuesday 06:30 IST: relay 2 off, relay 1 on again at 06:00
+    await sim.tick();
+    await waitFor(() => relayEvents(obs.msgs).length >= 2 || undefined);
+    expect(sim.state.relays[0]).toBe(true);
+    expect(sim.state.relays[1]).toBe(false);
+    await sendConfig(pub.client, '');
+  });
+
+  it('AUTO does nothing outside the effective dates', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    const sim = await boot({ clock: at('2026-11-23T05:00:00Z'), executorIntervalMs: 0 });
+    await sendConfig(
+      pub.client,
+      configWire({
+        auto: {
+          effective_from: '2026-12-01',
+          effective_to: null,
+          channels: [{ relay: 1, windows: [{ days: WEEKDAYS, on: '06:00', off: '18:00' }] }],
+        },
+      }),
+    );
+    await waitFor(() => configEvents(obs.msgs).length >= 1 || undefined);
+    const mode = command({ action: 'SET_MODE', mode: 'AUTO', relay: undefined, state: undefined });
+    await send(obs.client, mode);
+    await waitFor(() => acksFor(obs.msgs, mode.command_id as string).length >= 1 || undefined);
+    expect(acksFor(obs.msgs, mode.command_id as string)[0]!.json).toMatchObject({
+      result: 'REJECTED',
+      reason: 'AUTO_NOT_CONFIGURED',
+    });
+    expect(sim.state.mode).toBe('MANUAL');
+    await sendConfig(pub.client, '');
+  });
+
+  it('EXPERIMENT: relays outside the experiment go OFF, experiment relays follow their windows', async () => {
+    const obs = await observer(`cimcms/led/${DEV}/#`);
+    const pub = await observer('cimcms/none');
+    const sim = await boot({ clock: at('2026-11-23T05:00:00Z'), executorIntervalMs: 0 });
+    await sim.setAll(true); // everything ON by keypad
+    await sendConfig(
+      pub.client,
+      configWire({
+        auto: null,
+        experiment: {
+          experiment_id: 'exp-1',
+          starts_at_utc: '2026-11-23T00:00:00Z',
+          ends_at_utc: '2026-11-30T00:00:00Z',
+          channels: [{ relay: 3, windows: [{ days: WEEKDAYS, on: '06:00', off: '18:00' }] }],
+        },
+      }),
+    );
+    await waitFor(() => configEvents(obs.msgs).length >= 1 || undefined);
+    obs.msgs.length = 0;
+    const mode = command({ action: 'SET_MODE', mode: 'EXPERIMENT', relay: undefined, state: undefined });
+    await send(obs.client, mode);
+    await waitFor(() => acksFor(obs.msgs, mode.command_id as string).length >= 1 || undefined);
+    expect(sim.state.relays.map((v, i) => (v ? i + 1 : 0)).filter(Boolean)).toEqual([3]);
+    const events = relayEvents(obs.msgs);
+    expect(events).toHaveLength(15);
+    expect(events.every((m) => (m.json?.data as Record<string, unknown>).source === 'EXPERIMENT')).toBe(true);
+    await sendConfig(pub.client, '');
   });
 });

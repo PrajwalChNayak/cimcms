@@ -6,12 +6,16 @@ import {
   MQTT_KEEPALIVE_S,
   ackWireSchema,
   commandWireSchema,
+  configWireSchema,
+  istParts,
+  windowActiveAt,
   eventWireSchema,
   statusWireSchema,
   telemetryWireSchema,
   topicFor,
   type AckWire,
   type CommandWire,
+  type ConfigWire,
   type Mode,
   type TopicKind,
 } from '@cimcms/contracts';
@@ -37,6 +41,19 @@ export interface SimulatorOptions {
   rejectAll?: string;
   /** simulation_mode=false when set. */
   hardware?: boolean;
+  /**
+   * Like the firmware: SET_MODE AUTO / EXPERIMENT is REJECTED (AUTO_NOT_CONFIGURED /
+   * EXPERIMENT_NOT_CONFIGURED) while no matching config was received. Default true.
+   */
+  requireConfig?: boolean;
+  /** RTC_SYNC_NOW answers FAILED (reason RTC_SYNC_FAILED) instead of syncing. */
+  rtcSyncFails?: boolean;
+  /** Every config message is answered CONFIG_APPLIED REJECTED with this reason. */
+  rejectConfig?: string;
+  /** Schedule executor period in ms (default 60000, 0 = off). Tests call `tick()` instead. */
+  executorIntervalMs?: number;
+  /** Clock used by the executor (default: real time). */
+  clock?: () => Date;
   /** Test hook for deterministic fail-rate. */
   random?: () => number;
   /** Optional log sink. */
@@ -52,6 +69,9 @@ export interface SimulatorState {
   connected: boolean;
   /** Last command ids seen (ring of 32). */
   seenCommandIds: string[];
+  rtc: { syncSource: string; lastSyncUtc?: string; lastSyncResult?: string; driftMs: number };
+  /** Last accepted config (kept across reboot, like the firmware keeps it in NVS). */
+  config: ConfigWire | null;
 }
 
 export interface Simulator {
@@ -66,6 +86,8 @@ export interface Simulator {
   toggle(relay: number): Promise<void>;
   setAll(on: boolean): Promise<void>;
   setMode(mode: Mode): Promise<void>;
+  /** Run the schedule / experiment executor once (it also runs every minute in AUTO / EXPERIMENT). */
+  tick(): Promise<void>;
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -78,6 +100,7 @@ class SimulatorImpl implements Simulator {
   state: SimulatorState;
   private client: MqttClient | null = null;
   private heartbeat: NodeJS.Timeout | null = null;
+  private executor: NodeJS.Timeout | null = null;
   private queue: Promise<void> = Promise.resolve();
   private bootAnnounced = false;
   private stopped = false;
@@ -98,6 +121,8 @@ class SimulatorImpl implements Simulator {
       seq: 0,
       connected: false,
       seenCommandIds: [],
+      rtc: { syncSource: 'SIM', driftMs: 0 },
+      config: null,
     };
   }
 
@@ -188,6 +213,23 @@ class SimulatorImpl implements Simulator {
     }
     await this.publishTelemetry();
     this.startHeartbeat();
+    this.startExecutor();
+  }
+
+  private startExecutor(): void {
+    if (this.executor) clearInterval(this.executor);
+    this.executor = null;
+    const every = this.o.executorIntervalMs ?? 60_000;
+    if (every <= 0) return;
+    this.executor = setInterval(() => {
+      this.tick().catch((err: unknown) => this.log(`executor: ${String(err)}`));
+    }, every);
+    this.executor.unref();
+  }
+
+  private stopExecutor(): void {
+    if (this.executor) clearInterval(this.executor);
+    this.executor = null;
   }
 
   private startHeartbeat(): void {
@@ -205,6 +247,7 @@ class SimulatorImpl implements Simulator {
 
   async stop(): Promise<void> {
     this.stopHeartbeat();
+    this.stopExecutor();
     const client = this.client;
     if (!client) return;
     if (client.connected) {
@@ -218,6 +261,7 @@ class SimulatorImpl implements Simulator {
 
   async crash(): Promise<void> {
     this.stopHeartbeat();
+    this.stopExecutor();
     const client = this.client;
     if (!client) return;
     this.client = null;
@@ -233,6 +277,7 @@ class SimulatorImpl implements Simulator {
     this.state.bootId = newBootId();
     this.state.seq = 0;
     this.state.seenCommandIds = [];
+    this.state.rtc = { syncSource: 'SIM', driftMs: 0 };
     this.state.mode = this.o.mode ?? 'MANUAL';
     this.state.relays = this.state.relays.map(() => false);
     await this.connect();
@@ -274,6 +319,14 @@ class SimulatorImpl implements Simulator {
     );
   }
 
+  private modeStatus(): 'ACTIVE' | 'NOT_CONFIGURED' {
+    if (this.o.requireConfig === false) return 'ACTIVE';
+    const m = this.state.mode;
+    if (m === 'AUTO' && !this.autoReady()) return 'NOT_CONFIGURED';
+    if (m === 'EXPERIMENT' && !this.state.config?.experiment) return 'NOT_CONFIGURED';
+    return 'ACTIVE';
+  }
+
   private async publishTelemetry(): Promise<void> {
     if (!this.client?.connected) return;
     const states = [...this.state.relays];
@@ -289,7 +342,7 @@ class SimulatorImpl implements Simulator {
         boot_id: this.state.bootId,
         seq: this.nextSeq(),
         mode: this.state.mode,
-        mode_status: 'ACTIVE',
+        mode_status: this.modeStatus(),
         simulation_mode: this.simulationMode,
         connectivity: {
           wifi_connected: true,
@@ -300,7 +353,19 @@ class SimulatorImpl implements Simulator {
         },
         relay_states: states,
         relay_on_count: states.filter(Boolean).length,
-        rtc: { available: true, valid: true, time_utc: ts, sync_source: 'SIM' },
+        rtc: {
+          available: true,
+          valid: true,
+          time_utc: ts,
+          sync_source: this.state.rtc.syncSource,
+          ...(this.state.rtc.lastSyncUtc !== undefined && { last_sync_utc: this.state.rtc.lastSyncUtc }),
+          ...(this.state.rtc.lastSyncResult !== undefined && {
+            last_sync_result: this.state.rtc.lastSyncResult,
+          }),
+          drift_ms: this.state.rtc.driftMs,
+        },
+        ...(this.state.config && { config_version: this.state.config.config_version }),
+        ...(this.o.requireConfig !== false && { auto_ready: this.autoReady() }),
       },
       { qos: 0, retain: false },
     );
@@ -351,7 +416,7 @@ class SimulatorImpl implements Simulator {
 
   private async changeRelays(
     next: boolean[],
-    source: 'COMMAND' | 'KEYPAD',
+    source: 'COMMAND' | 'KEYPAD' | 'SCHEDULE' | 'EXPERIMENT',
     commandId: string | null,
   ): Promise<void> {
     const changed: number[] = [];
@@ -392,6 +457,94 @@ class SimulatorImpl implements Simulator {
     const previous = this.state.mode;
     this.state.mode = mode;
     await this.publishEvent('MODE_CHANGED', { mode, previous });
+    await this.runExecutor();
+    await this.publishTelemetry();
+  }
+
+  // ---------- AUTO / EXPERIMENT executor ----------
+
+  private now(): Date {
+    return this.o.clock ? this.o.clock() : new Date();
+  }
+
+  /** Relay states the active programme wants right now, or null when nothing is programmed. */
+  private desiredRelays(): { next: boolean[]; source: 'SCHEDULE' | 'EXPERIMENT' } | null {
+    const config = this.state.config;
+    if (!config) return null;
+    const at = this.now();
+    const { isoDay, minuteOfDay, date } = istParts(at);
+    if (this.state.mode === 'AUTO') {
+      const auto = config.auto;
+      if (!auto) return null;
+      if (date < auto.effective_from || (auto.effective_to !== null && date > auto.effective_to)) return null;
+      const next = [...this.state.relays];
+      for (const ch of auto.channels) {
+        next[ch.relay - 1] = ch.windows.some((w) => windowActiveAt(w, isoDay, minuteOfDay));
+      }
+      return { next, source: 'SCHEDULE' };
+    }
+    if (this.state.mode === 'EXPERIMENT') {
+      const exp = config.experiment;
+      if (!exp) return null;
+      // O-15 default: relays that are not part of the experiment are OFF while EXPERIMENT runs,
+      // and so is everything outside the experiment period.
+      const next = this.state.relays.map(() => false);
+      const t = at.getTime();
+      if (t >= Date.parse(exp.starts_at_utc) && t < Date.parse(exp.ends_at_utc)) {
+        for (const ch of exp.channels) {
+          next[ch.relay - 1] = ch.windows.some((w) => windowActiveAt(w, isoDay, minuteOfDay));
+        }
+      }
+      return { next, source: 'EXPERIMENT' };
+    }
+    return null;
+  }
+
+  /** Applies the programme; returns true when a relay changed. */
+  private async runExecutor(): Promise<boolean> {
+    const want = this.desiredRelays();
+    if (!want) return false;
+    if (want.next.every((v, i) => v === this.state.relays[i])) return false;
+    await this.changeRelays(want.next, want.source, null);
+    return true;
+  }
+
+  async tick(): Promise<void> {
+    if (await this.runExecutor()) await this.publishTelemetry();
+  }
+
+  private autoReady(): boolean {
+    const auto = this.state.config?.auto;
+    if (!auto) return false;
+    const { date } = istParts(this.now());
+    return date >= auto.effective_from && (auto.effective_to === null || date <= auto.effective_to);
+  }
+
+  /** CONFIG_APPLIED answer to a config message. */
+  private async handleConfig(text: string): Promise<void> {
+    if (text.trim() === '') return; // retained message cleared
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = undefined;
+    }
+    const rawVersion = (json as { config_version?: unknown } | undefined)?.config_version;
+    const version =
+      typeof rawVersion === 'number' && Number.isInteger(rawVersion) && rawVersion >= 0 ? rawVersion : 0;
+    const reject = (reason: string): Promise<void> =>
+      this.publishEvent('CONFIG_APPLIED', { config_version: version, result: 'REJECTED', reason });
+
+    const parsed = configWireSchema.safeParse(json);
+    if (!parsed.success) return reject('INVALID_CONFIG');
+    if (parsed.data.device_id !== this.state.deviceId) return reject('WRONG_DEVICE');
+    if (this.o.rejectConfig !== undefined) return reject(this.o.rejectConfig.slice(0, 64));
+    // The retained config is delivered again after every reconnect: same or older version = already known.
+    if (this.state.config && parsed.data.config_version <= this.state.config.config_version) return;
+
+    this.state.config = parsed.data;
+    await this.publishEvent('CONFIG_APPLIED', { config_version: version, result: 'APPLIED' });
+    await this.runExecutor();
     await this.publishTelemetry();
   }
 
@@ -399,11 +552,19 @@ class SimulatorImpl implements Simulator {
 
   private async onMessage(topic: string, text: string): Promise<void> {
     if (topic === this.topic('config')) {
-      this.log(`config received (${text.length} bytes), ignored in MVP`);
+      await this.handleConfig(text);
       return;
     }
     if (topic !== this.topic('command')) return;
     await this.handleCommand(text);
+  }
+
+  /** Reason to refuse a mode, or null (the firmware refuses AUTO / EXPERIMENT without a usable config). */
+  private modeGuard(mode: Mode): string | null {
+    if (this.o.requireConfig === false) return null;
+    if (mode === 'AUTO' && !this.autoReady()) return 'AUTO_NOT_CONFIGURED';
+    if (mode === 'EXPERIMENT' && !this.state.config?.experiment) return 'EXPERIMENT_NOT_CONFIGURED';
+    return null;
   }
 
   private async handleCommand(text: string): Promise<void> {
@@ -498,18 +659,38 @@ class SimulatorImpl implements Simulator {
         await this.publishAck(id, 'EXECUTED', { action });
         return;
       case 'SET_MODE': {
+        const guard = this.modeGuard(cmd.mode);
+        if (guard) {
+          await this.publishAck(id, 'REJECTED', { action, reason: guard });
+          return;
+        }
         const previous = this.state.mode;
         this.state.mode = cmd.mode;
         await this.publishEvent('MODE_CHANGED', { mode: cmd.mode, previous });
         await this.publishAck(id, 'EXECUTED', { action });
+        await this.runExecutor();
         await this.publishTelemetry();
         return;
       }
-      case 'RTC_SYNC_NOW':
+      case 'RTC_SYNC_NOW': {
         await this.publishAck(id, 'ACCEPTED', { action });
-        await this.publishEvent('RTC_SYNC', { result: 'OK', source: 'SIM' });
-        await this.publishAck(id, 'EXECUTED', { action });
+        if (this.o.rtcSyncFails) {
+          this.state.rtc.lastSyncResult = 'FAILED';
+          await this.publishEvent('RTC_SYNC', { result: 'FAILED', source: 'NTP-SIM' });
+          await this.publishAck(id, 'FAILED', { action, reason: 'RTC_SYNC_FAILED' });
+        } else {
+          this.state.rtc = {
+            syncSource: 'NTP-SIM',
+            lastSyncUtc: nowIso(),
+            lastSyncResult: 'OK',
+            driftMs: 0,
+          };
+          await this.publishEvent('RTC_SYNC', { result: 'OK', source: 'NTP-SIM' });
+          await this.publishAck(id, 'EXECUTED', { action });
+        }
+        await this.publishTelemetry();
         return;
+      }
     }
   }
 }

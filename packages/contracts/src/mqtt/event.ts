@@ -20,3 +20,11 @@ export const relayChangedDataSchema = z.object({
   command_id: z.string().uuid().nullable().optional(),
 });
 export type RelayChangedData = z.infer<typeof relayChangedDataSchema>;
+
+/** `data` of a CONFIG_APPLIED event (plan T5.3). */
+export const configAppliedDataSchema = z.object({
+  config_version: z.number().int().nonnegative(),
+  result: z.enum(['APPLIED', 'REJECTED']),
+  reason: z.string().max(64).optional(),
+});
+export type ConfigAppliedData = z.infer<typeof configAppliedDataSchema>;

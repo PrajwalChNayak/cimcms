@@ -254,3 +254,125 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
 }
+
+// ─── CIMCMS Phase 5: rooms, schedules, device config, experiments (plan T5.1-T5.4) ───
+enum RoomStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DeviceConfigStatus {
+  PUBLISHED
+  APPLIED
+  REJECTED
+}
+
+enum ExperimentStatus {
+  DRAFT
+  READY
+  RUNNING
+  PAUSED
+  COMPLETED
+  STOPPED
+}
+
+model Room {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  farmId    String?    @db.ObjectId
+  code      String     @unique
+  name      String
+  status    RoomStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// The unique index prevents one relay in two rooms (FRS 9.4).
+model RoomChannelAssignment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  roomId    String   @db.ObjectId
+  deviceId  String
+  relay     Int
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([deviceId, relay])
+  @@index([roomId])
+}
+
+model Schedule {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  roomId           String         @db.ObjectId
+  name             String
+  status           ScheduleStatus @default(DRAFT)
+  latestVersion    Int            @default(1)
+  publishedVersion Int?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([roomId])
+}
+
+// Immutable once publishedAt is set. effectiveFrom/effectiveTo are IST calendar days (YYYY-MM-DD).
+model ScheduleVersion {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  scheduleId     String    @db.ObjectId
+  version        Int
+  rules          Json
+  effectiveFrom  String
+  effectiveTo    String?
+  createdById    String?   @db.ObjectId
+  createdByEmail String?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([scheduleId, version])
+}
+
+model DeviceConfig {
+  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId       String
+  configVersion  Int
+  payload        Json
+  sourceVersions Json
+  status         DeviceConfigStatus @default(PUBLISHED)
+  publishedAt    DateTime
+  appliedAt      DateTime?
+  reason         String?
+  createdAt      DateTime           @default(now())
+
+  @@unique([deviceId, configVersion])
+}
+
+model Experiment {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  code           String           @unique
+  title          String
+  description    String?
+  status         ExperimentStatus @default(DRAFT)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdById    String?          @db.ObjectId
+  createdByEmail String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model ExperimentAssignment {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  experimentId String @db.ObjectId
+  groupLabel   String
+  deviceId     String
+  relay        Int
+  windows      Json
+
+  @@index([experimentId])
+  @@index([deviceId, relay])
+}

@@ -66,8 +66,11 @@ export const RelayCard = ({
         <span className="text-sm font-semibold text-text-primary">Relay {relay}</span>
         <SwitchIcon on={reportedOn} />
       </div>
-      {/* TODO(T5.1): room / channel label comes from RoomChannelAssignment */}
-      <p className="text-xs text-text-secondary">Room: not assigned</p>
+      <p className="text-xs text-text-secondary" data-testid={`relay-room-${relay}`}>
+        {view.room
+          ? `Room: ${view.room.roomName}${view.room.label ? ` · ${view.room.label}` : ""}`
+          : "Room: not assigned"}
+      </p>
 
       <p className="text-sm font-medium text-text-primary" data-testid={`relay-state-${relay}`}>
         {reportedOn === null ? RELAY_UNKNOWN_TEXT : relayLabel(reportedOn, simulation)}

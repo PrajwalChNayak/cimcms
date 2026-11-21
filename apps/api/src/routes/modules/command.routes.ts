@@ -35,6 +35,15 @@ export default (router: Router): void => {
     CommandController.submit,
   );
 
+  router.post(
+    "/devices/:id/rtc-sync",
+    authenticateToken,
+    requirePermission("DEVICE_DIAGNOSTICS"),
+    commandLimiter,
+    validate({ params: objectIdParamSchema, headers: submitHeadersSchema }),
+    CommandController.rtcSync,
+  );
+
   router.get(
     "/devices/:id/commands",
     authenticateToken,

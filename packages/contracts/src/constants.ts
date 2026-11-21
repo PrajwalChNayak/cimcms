@@ -24,7 +24,15 @@ export const COMMAND_ACTIONS = [
   'SET_MODE',
   'RTC_SYNC_NOW',
 ] as const;
-export const MVP_COMMAND_ACTIONS = ['SET_RELAY', 'SET_ALL_RELAYS', 'REQUEST_STATUS'] as const;
+// Actions the LED controller supports. Phase 5 added SET_MODE (T5.2) and RTC_SYNC_NOW (T5.5).
+// RTC_SYNC_NOW is not part of submitCommandBodySchema: it has its own route (DEVICE_DIAGNOSTICS).
+export const MVP_COMMAND_ACTIONS = [
+  'SET_RELAY',
+  'SET_ALL_RELAYS',
+  'REQUEST_STATUS',
+  'SET_MODE',
+  'RTC_SYNC_NOW',
+] as const;
 
 export const ACK_RESULTS = [
   'ACCEPTED',

@@ -190,7 +190,9 @@ describe("POST /devices/:id/commands", () => {
       { action: "SET_RELAY", relay: 17, state: "ON" },
       { action: "SET_RELAY", relay: 0, state: "ON" },
       { action: "SET_RELAY", relay: 1, state: "TOGGLE" },
-      { action: "SET_MODE", mode: "AUTO" }, // not an MVP action
+      { action: "SET_MODE", mode: "TURBO" },
+      { action: "SET_MODE" },
+      { action: "RTC_SYNC_NOW" }, // only through POST /devices/:id/rtc-sync (T5.5)
       { action: "NOPE" },
       {},
     ]) {

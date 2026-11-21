@@ -24,6 +24,25 @@ class CommandController {
     );
   }
 
+  /** POST /devices/:id/rtc-sync -> RTC_SYNC_NOW command (DEVICE_DIAGNOSTICS), same answer as submit. */
+  static async rtcSync(req: Request, res: Response): Promise<void> {
+    const subject = req.subject;
+    if (!subject) throw new AppError("Authentication required", 401, "UNAUTHENTICATED");
+    const { command, created } = await CommandService.submit(
+      subject,
+      req.params.id as string,
+      { action: "RTC_SYNC_NOW" },
+      req.header("Idempotency-Key") ?? undefined,
+      { requestId: req.requestId ?? null, ip: req.ip ?? null },
+    );
+    handleSuccess(
+      res,
+      command,
+      created ? "Command accepted" : "Command already submitted",
+      created ? 202 : 200,
+    );
+  }
+
   /** GET /devices/:id/commands */
   static async list(req: Request, res: Response): Promise<void> {
     const result = await CommandService.list(req.params.id as string, req.query as unknown as ListCommandsQuery);

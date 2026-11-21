@@ -20,6 +20,7 @@ import {
   SUBMIT_FAILED_TEXT,
   modeBlockedText,
 } from "@features/ledControl/ledText";
+import { useRelayRooms, type RelayRoom } from "@features/rooms/hooks/useRelayRooms";
 import { usePermission } from "@shared/hooks/usePermission";
 import { useRealtimeConnection } from "@shared/realtime/socketClient";
 import { extractErrorMessage } from "@shared/utils/errorUtils";
@@ -35,6 +36,8 @@ export interface RelayView {
   lastCommand: CommandDto | null;
   /** Time of the last reported change of this relay (ISO UTC), if known. */
   lastChangeAt: string | null;
+  /** Room this relay is assigned to (T5.1), null when unassigned or the user cannot read rooms. */
+  room: RelayRoom | null;
 }
 
 export interface LedController {
@@ -78,6 +81,7 @@ export const useLedController = (
   const hasBulkPermission = usePermission("DEVICE_COMMAND_BULK");
   const hasDiagnostics = usePermission("DEVICE_DIAGNOSTICS");
   const connected = useRealtimeConnection() === "connected";
+  const relayRooms = useRelayRooms(deviceId);
 
   const state = stateQuery.data;
   const liveness = state?.liveness;
@@ -130,9 +134,10 @@ export const useLedController = (
         pending: pendingRelays[relay] ?? null,
         lastCommand: lastCommand.get(relay) ?? null,
         lastChangeAt: lastChange.get(relay) ?? null,
+        room: relayRooms.get(relay) ?? null,
       };
     });
-  }, [state?.relayStates, pendingRelays, commands, changes.data]);
+  }, [state?.relayStates, pendingRelays, commands, changes.data, relayRooms]);
 
   const lastBulk = useMemo(
     () => commands.find((c) => c.action === "SET_ALL_RELAYS") ?? null,

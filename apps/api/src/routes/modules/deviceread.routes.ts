@@ -48,6 +48,12 @@ export default (router: Router): void => {
     DeviceReadController.state,
   );
   router.get(
+    "/devices/:id/readiness",
+    ...read,
+    validate({ params: objectIdParamSchema }),
+    DeviceReadController.readiness,
+  );
+  router.get(
     "/devices/:id/telemetry",
     ...read,
     validate({ params: objectIdParamSchema, query: timeRangeQuerySchema }),

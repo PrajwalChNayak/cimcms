@@ -1,4 +1,5 @@
 import { CommandTimeoutJob } from "./commandTimeout.job";
+import { ExperimentJob } from "./experiment.job";
 import { LivenessJob } from "./liveness.job";
 import { RetentionJob } from "./retention.job";
 
@@ -10,10 +11,12 @@ export function startJobs(): void {
   CommandTimeoutJob.start();
   LivenessJob.start();
   RetentionJob.start();
+  ExperimentJob.start();
 }
 
 export function stopJobs(): void {
   CommandTimeoutJob.stop();
   LivenessJob.stop();
   RetentionJob.stop();
+  ExperimentJob.stop();
 }

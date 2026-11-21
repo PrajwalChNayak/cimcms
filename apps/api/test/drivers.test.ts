@@ -9,11 +9,11 @@ import {
 } from "@/drivers/driver.registry";
 
 describe("driver registry", () => {
-  it("LED supports SET_RELAY, SET_ALL_RELAYS, REQUEST_STATUS but not SET_MODE", () => {
+  it("LED supports SET_RELAY, SET_ALL_RELAYS, REQUEST_STATUS and SET_MODE", () => {
     expect(supportsAction("LED_CONTROLLER", "SET_RELAY")).toBe(true);
     expect(supportsAction("LED_CONTROLLER", "SET_ALL_RELAYS")).toBe(true);
     expect(supportsAction("LED_CONTROLLER", "REQUEST_STATUS")).toBe(true);
-    expect(supportsAction("LED_CONTROLLER", "SET_MODE")).toBe(false);
+    expect(supportsAction("LED_CONTROLLER", "SET_MODE")).toBe(true);
   });
 
   it("HUMIDIFIER supports nothing", () => {

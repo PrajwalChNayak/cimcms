@@ -44,7 +44,16 @@ const DeviceDetailPage = lazy(() => import("@view/devices/DeviceDetailPage.tsx")
 const LedControlPage = lazy(() => import("@view/devices/LedControlPage.tsx").then((m) => ({ default: m.LedControlPage })));
 const DeviceCommandsPage = lazy(() => import("@view/history/DeviceCommandsPage.tsx").then((m) => ({ default: m.DeviceCommandsPage })));
 const DeviceEventsPage = lazy(() => import("@view/history/DeviceEventsPage.tsx").then((m) => ({ default: m.DeviceEventsPage })));
+const ReportsPage = lazy(() => import("@view/reports/ReportsPage.tsx").then((m) => ({ default: m.ReportsPage })));
 const AuditPage = lazy(() => import("@view/history/AuditPage.tsx").then((m) => ({ default: m.AuditPage })));
+const RoomsPage = lazy(() => import("@view/rooms/RoomsPage.tsx").then((m) => ({ default: m.RoomsPage })));
+const RoomDetailPage = lazy(() => import("@view/rooms/RoomDetailPage.tsx").then((m) => ({ default: m.RoomDetailPage })));
+const ModePage = lazy(() => import("@view/devices/ModePage.tsx").then((m) => ({ default: m.ModePage })));
+const SystemPage = lazy(() => import("@view/system/SystemPage.tsx").then((m) => ({ default: m.SystemPage })));
+const SchedulesPage = lazy(() => import("@view/schedules/SchedulesPage.tsx").then((m) => ({ default: m.SchedulesPage })));
+const SchedulePage = lazy(() => import("@view/schedules/SchedulePage.tsx").then((m) => ({ default: m.SchedulePage })));
+const ExperimentsPage = lazy(() => import("@view/experiments/ExperimentsPage.tsx").then((m) => ({ default: m.ExperimentsPage })));
+const ExperimentPage = lazy(() => import("@view/experiments/ExperimentPage.tsx").then((m) => ({ default: m.ExperimentPage })));
 const SettingsPage = lazy(() => import("@view/settings/SettingsPage.tsx").then((m) => ({ default: m.SettingsPage })));
 const MasterTypeConstantPage = lazy(() => import("@/view/master/MasterTypeConstantPage").then((m) => ({ default: m.MasterTypeConstantPage })));
 const UsersManagementPage = lazy(() => import("@/view/master/UsersManagementPage").then((m) => ({ default: m.UsersManagementPage })));
@@ -64,6 +73,15 @@ const componentMap: Record<string, React.LazyExoticComponent<React.FC>> = {
     DeviceCommandsPage,
     DeviceEventsPage,
     AuditPage,
+    ReportsPage,
+    RoomsPage,
+    RoomDetailPage,
+    ModePage,
+    SystemPage,
+    SchedulesPage,
+    SchedulePage,
+    ExperimentsPage,
+    ExperimentPage,
     SettingsPage,
     MasterTypeConstantPage,
     UsersManagementPage,

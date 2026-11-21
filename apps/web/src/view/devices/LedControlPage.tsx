@@ -6,11 +6,13 @@ import { BulkControlBar } from "@features/ledControl/components/BulkControlBar";
 import { RelayGrid } from "@features/ledControl/components/RelayGrid";
 import { SimulationBanner } from "@features/ledControl/components/SimulationBanner";
 import { useLedController } from "@features/ledControl/hooks/useLedController";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 /** Views only: all logic lives in useLedController. */
 const LedControl = ({ device }: { device: DeviceListItemDto }) => {
   const c = useLedController(device.id, device.deviceId);
+  const [groupByRoom, setGroupByRoom] = useState(false);
 
   if (c.isLoading) {
     return (
@@ -63,7 +65,17 @@ const LedControl = ({ device }: { device: DeviceListItemDto }) => {
         />
       )}
 
+      <label className="flex items-center gap-2 text-sm text-text-primary">
+        <input
+          type="checkbox"
+          checked={groupByRoom}
+          onChange={(e) => setGroupByRoom(e.target.checked)}
+        />
+        Group by room
+      </label>
+
       <RelayGrid
+        groupByRoom={groupByRoom}
         relays={c.relays}
         simulation={c.simulationMode}
         showControls={c.hasCommandPermission}
@@ -125,6 +137,12 @@ export const LedControlPage = () => {
             className="text-primary hover:underline"
           >
             Event history
+          </Link>
+          <Link
+            to={`/devices/${device.deviceId}/mode`}
+            className="text-primary hover:underline"
+          >
+            Operating mode
           </Link>
         </div>
       )}

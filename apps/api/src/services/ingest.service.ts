@@ -20,6 +20,7 @@ import prisma from "@models/prisma.client";
 import type { Prisma } from "@prisma/client";
 import TelemetryRepository from "@repositories/telemetry.repository";
 import CommandService from "@services/command.service";
+import ConfigService from "@services/config.service";
 import DeviceStateService, { type DeviceStatusPatch } from "@services/devicestate.service";
 import logger from "@utils/logger.utils";
 
@@ -311,6 +312,13 @@ export default class IngestService {
 
     const { after } = await DeviceStateService.apply(deviceId, type, patch, "ONLINE");
     await insertPoint();
+    if (state.configVersion !== null) {
+      try {
+        await ConfigService.onTelemetryConfigVersion(deviceId, state.configVersion);
+      } catch (err) {
+        logger.error("config version feedback failed", { deviceId, error: String(err) });
+      }
+    }
 
     RealtimeEmitter.telemetry(deviceId, telemetryWireToPoint(wire));
     if (changed.length > 0) {
@@ -417,6 +425,13 @@ export default class IngestService {
 
     const { after, livenessChanged } = await DeviceStateService.apply(deviceId, type, patch, "ONLINE");
     RealtimeEmitter.deviceEvent(deviceId, DeviceStateService.eventToDto(row));
+    if (wire.type === "CONFIG_APPLIED") {
+      try {
+        await ConfigService.onConfigEvent(deviceId, wire.data);
+      } catch (err) {
+        logger.error("config event feedback failed", { deviceId, error: String(err) });
+      }
+    }
     if (isMode(newMode) || livenessChanged) DeviceStateService.emitStatus(after);
   }
 

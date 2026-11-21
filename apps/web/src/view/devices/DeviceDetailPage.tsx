@@ -124,6 +124,11 @@ export const DeviceDetailPage = () => {
             <Link to={`/devices/${device.deviceId}/events`} className="text-primary hover:underline">
               Event history
             </Link>
+            {device.type === "LED_CONTROLLER" && (
+              <Link to={`/devices/${device.deviceId}/mode`} className="text-primary hover:underline">
+                Operating mode
+              </Link>
+            )}
           </div>
         )}
 

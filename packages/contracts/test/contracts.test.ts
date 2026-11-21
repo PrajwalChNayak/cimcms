@@ -196,7 +196,11 @@ describe('rest', () => {
       submitCommandBodySchema.safeParse({ action: 'SET_RELAY', relay: 17, state: 'ON' }).success,
     ).toBe(false);
     expect(submitCommandBodySchema.safeParse({ action: 'SET_MODE', mode: 'AUTO' }).success).toBe(
+      true,
+    );
+    expect(submitCommandBodySchema.safeParse({ action: 'SET_MODE', mode: 'BOGUS' }).success).toBe(
       false,
     );
+    expect(submitCommandBodySchema.safeParse({ action: 'SET_MODE' }).success).toBe(false);
   });
 });

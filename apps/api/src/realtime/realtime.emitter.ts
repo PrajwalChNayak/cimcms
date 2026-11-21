@@ -4,7 +4,9 @@ import {
   type ConnectivityData,
   type DeviceEventDto,
   type DeviceStateDto,
+  type ExperimentUpdatedData,
   type RelayStateData,
+  type ScheduleUpdatedData,
   type ServerToClientEvents,
   type SocketEnvelope,
   type TelemetryPointDto,
@@ -58,6 +60,14 @@ export class RealtimeEmitter {
 
   static deviceEvent(deviceId: string, dto: DeviceEventDto): void {
     RealtimeEmitter.send(deviceId, "device:event", dto);
+  }
+
+  static scheduleUpdated(deviceId: string, data: ScheduleUpdatedData): void {
+    RealtimeEmitter.send(deviceId, "schedule:updated", data);
+  }
+
+  static experimentUpdated(deviceId: string, data: ExperimentUpdatedData): void {
+    RealtimeEmitter.send(deviceId, "experiment:updated", data);
   }
 
   static commandUpdated(dto: CommandDto): void {

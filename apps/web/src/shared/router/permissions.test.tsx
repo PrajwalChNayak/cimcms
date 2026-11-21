@@ -143,10 +143,10 @@ describe("navigation", () => {
   const labels = (items: ReturnType<typeof getNavigationItems>) =>
     items.map((i) => i.label);
 
-  it("VIEWER menu: Dashboard, Devices, Audit, Settings (no Users)", () => {
+  it("VIEWER menu: Dashboard, Devices, Rooms, Audit, Settings (no Users)", () => {
     expect(
       labels(getNavigationItems({ ...VIEWER, cimcms: true })),
-    ).toEqual(["Dashboard", "Devices", "Audit", "Settings"]);
+    ).toEqual(["Dashboard", "Devices", "Rooms", "Audit", "Settings"]);
   });
 
   it("ADMIN menu adds Users", () => {

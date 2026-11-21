@@ -65,3 +65,20 @@ export const formatDuration = (
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
   return `${Math.floor(ms / 60_000)} m ${Math.round((ms % 60_000) / 1000)} s`;
 };
+
+const LOCAL_INPUT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+/**
+ * `<input type="datetime-local">` value (YYYY-MM-DDTHH:mm, read as IST wall-clock time because
+ * the UI shows IST everywhere) -> ISO UTC. Invalid -> undefined.
+ */
+export const istLocalToUtcIso = (value: string): string | undefined => {
+  const m = LOCAL_INPUT.exec(value);
+  if (!m) return undefined;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  return Number.isNaN(ms) ? undefined : new Date(ms - IST_OFFSET_MS).toISOString();
+};
+
+/** ISO UTC -> `datetime-local` value showing the IST wall-clock time. Invalid -> empty string. */
+export const utcIsoToIstLocal = (iso: string | null | undefined): string =>
+  isValid(iso) ? new Date(Date.parse(iso) + IST_OFFSET_MS).toISOString().slice(0, 16) : "";
