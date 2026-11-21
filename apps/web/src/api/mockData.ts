@@ -7,7 +7,8 @@ export const mockUser: User = {
   id: "u-001",
   email: "admin@cultivoiot.com",
   name: "Carlos Rivera",
-  role: "admin",
+  roles: ["ADMIN"],
+  permissions: [],
 };
 
 // ─── Farms ────────────────────────────────────────────────

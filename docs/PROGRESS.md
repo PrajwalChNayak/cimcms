@@ -34,9 +34,9 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 | T2.9 | Device read endpoints | todo | | | |
 | T2.10 | Health, liveness job, retention job | todo | | | |
 | T2.11 | Backend end-to-end test | todo | | | |
-| T3.1 | Auth: internal user login + refresh flow | todo | | | |
-| T3.2 | Realtime client | todo | | | |
-| T3.3 | Devices feature on real API with live state | todo | | | |
+| T3.1 | Auth: internal user login + refresh flow | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
+| T3.2 | Realtime client | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
+| T3.3 | Devices feature on real API with live state | done-unverified | 2026-11-21 | see `git log --grep T3.1` (T3.1-T3.3 one commit) | unit/MSW tests pass (28/28 web); not run against real API; see D12 |
 | T3.4 | LED control feature | todo | | | |
 | T3.5 | Dashboard | todo | | | |
 | T3.6 | History pages | todo | | | |
@@ -84,6 +84,8 @@ The next task back-fills it. To find any task's commits: `git log --oneline --gr
 - **Security notes (pre-existing, not in plan scope):** `device.routes.ts`, `farm.routes.ts`, `master.routers.ts` and `/auth/me` have `authenticateToken` commented out (unauthenticated). Consumer `auth.service` signs 30-day tokens. Flag for owner before production.
 
 - **D11 (T0.9):** `.github/workflows/ci.yml` written (npm ci, build contracts, prisma generate, lint, typecheck, test, build). No remote exists, so CI is not verified remotely. Web lint baseline (17 errors) relaxed to warnings in `apps/web/eslint.config.js` (no-explicit-any, unused-vars, react-hooks compiler rules, etc.) so CI gates on new errors; tighten later.
+
+- **D12 (T3.1-T3.3):** T3.1-T3.3 share one commit. Real web app is smaller than `UI_ARCHITECTURE.md` (pages in `view/`, `viewmodels/`, `repository/`; no `shared/api`, no `usePaginationParams`). Details: `apiSchemas.ts` in `shared/utils/`; persist whitelist now `['ui']` (token no longer in localStorage); `RoleGuard`/`ProtectedRoute` rewritten (all listed permissions required, any listed role); `authSlice` state `{accessToken,user}`; detail route param is physical `deviceId`; old mock device repository and device pages deleted (farm mock links to `/devices/<mockId>` show "Device not found"); `relayChangeDtoSchema` defined locally in `deviceApi.ts` (contracts has none; check at T2.9); assumed API response bodies: login/refresh `{accessToken,user}` in the envelope `result`, `/user/me` user object in `result`; telemetry plain array in `result`. Socket client stops after 3 consecutive auth failures. `ledText.ts` created early (section 9 texts). Link to `/devices/:deviceId/control` is 404 until T3.4. Manual "login, hard reload" check not done (needs API): T3.8 covers it.
 
 ## Questions for owner
 

@@ -19,7 +19,6 @@ import {
   PURGE,
   REGISTER,
   REHYDRATE,
-  type Transform,
 } from "redux-persist";
 import storageLib from "redux-persist/lib/storage";
 
@@ -28,43 +27,14 @@ const storage =
   (storageLib as unknown as { default: typeof storageLib }).default ??
   storageLib;
 
-const authTransform: Transform<any, any> = {
-  in: (inboundState: unknown, key: string | number | symbol) => {
-    if (key === "auth") {
-      const {
-        error: _error,
-        isLoading: _isLoading,
-        ...persistedState
-      } = inboundState as {
-        error?: unknown;
-        isLoading?: unknown;
-        [k: string]: unknown;
-      };
-      return persistedState;
-    }
-    return inboundState;
-  },
-  out: (outboundState: unknown, key: string | number | symbol) => {
-    if (key === "auth") {
-      return {
-        ...(outboundState as object),
-        isLoading: false,
-        error: null,
-        isInitialized: false,
-      };
-    }
-    return outboundState;
-  },
-};
-
 // Redux Persist configuration
 const persistConfig = {
   key: "CultivoIot-root",
   storage,
   version: 1,
-  whitelist: ["auth"],
-  blacklist: [baseApi.reducerPath],
-  transforms: [authTransform],
+  // D-5: auth (access token) is memory-only and never persisted.
+  whitelist: ["ui"],
+  blacklist: [baseApi.reducerPath, "auth"],
   migrate: (state: PersistedState) => Promise.resolve(state),
 };
 

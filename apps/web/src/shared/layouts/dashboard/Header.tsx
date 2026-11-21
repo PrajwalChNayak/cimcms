@@ -1,5 +1,9 @@
 import { NotificationBell } from "@shared/components/ui/NotificationBell";
+import { ConnectionIndicator } from "@shared/realtime/ConnectionIndicator";
+import { useSignOut } from "@shared/auth/useSignOut";
 import Breadcrumb from "@shared/layouts/dashboard/Breadcrumb";
+import { useAppSelector } from "@store/hooks";
+import { selectAuthUser } from "@store/slices/authSlice";
 import { useRef, useState } from "react";
 
 /* ── Icon components ── */
@@ -29,6 +33,10 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
     const [searchFocused, setSearchFocused] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
+    const user = useAppSelector(selectAuthUser);
+    const signOut = useSignOut();
+    const displayName = user?.name ?? user?.email ?? "User";
+    const initials = displayName.slice(0, 2).toUpperCase();
 
     return (
         <header
@@ -92,6 +100,9 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
                     <SearchIcon />
                 </button>
 
+                {/* Realtime connection */}
+                <ConnectionIndicator />
+
                 {/* Notifications */}
                 <NotificationBell />
 
@@ -106,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
                             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-text-inverted"
                             style={{ background: "linear-gradient(135deg, var(--color-primary), var(--color-secondary))" }}
                         >
-                            AD
+                            {initials}
                         </div>
                         <svg
                             className={`hidden sm:block w-3.5 h-3.5 text-text-secondary transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`}
@@ -130,8 +141,8 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
                             >
                                 {/* User info */}
                                 <div className="px-4 py-3 border-b border-border">
-                                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Admin User</p>
-                                    <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>admin@cultivo.io</p>
+                                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{displayName}</p>
+                                    <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{user?.email ?? ""}</p>
                                 </div>
 
                                 <div className="py-1">
@@ -150,7 +161,10 @@ const Header: React.FC<HeaderProps> = ({ onSidebarToggle, onMobileSidebarToggle 
                                 <div className="border-t border-border py-1">
                                     <button
                                         type="button"
-                                        onClick={() => setProfileOpen(false)}
+                                        onClick={() => {
+                                            setProfileOpen(false);
+                                            void signOut();
+                                        }}
                                         className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error/8 transition-colors cursor-pointer"
                                     >
                                         Sign out

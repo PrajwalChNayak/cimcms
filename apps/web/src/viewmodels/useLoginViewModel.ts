@@ -2,7 +2,7 @@ import { extractErrorMessage } from "@/shared/utils/errorUtils";
 import type { LoginFormErrors, LoginFormState } from "@appTypes/auth.types";
 import { useAuthRepository } from "@repository/authRepository";
 import { useAppDispatch } from "@store/hooks";
-import { addToast, setCredentials } from "@store/index";
+import { addToast, setSession } from "@store/index";
 import { useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
@@ -56,15 +56,7 @@ export const useLoginViewModel = () => {
           password: formValues.password,
         });
 
-        const { authToken, id } = response.result;
-
-        dispatch(
-          setCredentials({
-            token: authToken,
-            userId: id,
-            loginTime: Date.now(),
-          }),
-        );
+        dispatch(setSession(response.result));
 
         dispatch(
           addToast({

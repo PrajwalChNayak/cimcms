@@ -3,14 +3,15 @@ export {
   clearError,
   logout,
   selectAuthError,
-  selectAuthRole,
+  selectAuthPermissions,
+  selectAuthRoles,
   selectAuthToken,
   selectAuthUser,
   selectAuthUserId,
   selectIsAuthenticated,
   selectIsLoading,
   setAuthError,
-  setCredentials,
+  setSession,
   setUser,
 } from "@store/slices/authSlice";
 export {

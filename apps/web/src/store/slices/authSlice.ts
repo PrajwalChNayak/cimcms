@@ -1,24 +1,27 @@
-import { authApi } from "@api/authApi";
 import type { User } from "@appTypes/auth.types";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 
+/**
+ * Auth state lives in memory only (D-5): the access token is never persisted.
+ * The refresh token is an HttpOnly cookie managed by the server.
+ * This slice must not import any API module (baseApi imports this file).
+ */
 interface AuthState {
-  token: string | null;
-  userId: string | null;
+  accessToken: string | null;
   user: User | null;
   isAuthenticated: boolean;
+  /** true once the boot-time refresh attempt has finished (success or failure) */
+  isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
-  isInitialized?: boolean;
-  loginTime?: number | null;
 }
 
 const initialState: AuthState = {
-  token: null,
-  userId: null,
+  accessToken: null,
   user: null,
   isAuthenticated: false,
+  isInitialized: false,
   isLoading: false,
   error: null,
 };
@@ -27,27 +30,18 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setCredentials: (
+    setSession: (
       state,
-      action: PayloadAction<
-        | { token: string; userId?: string; loginTime?: number }
-        | null
-        | undefined
-      >,
+      action: PayloadAction<{ accessToken: string; user: User }>,
     ) => {
-      const token = action.payload?.token ?? null;
-      state.token = token;
-      state.userId = action.payload?.userId ?? state.userId;
-      state.loginTime = action.payload?.loginTime ?? state.loginTime;
-      state.isAuthenticated = !!token;
+      state.accessToken = action.payload.accessToken;
+      state.user = action.payload.user;
+      state.isAuthenticated = true;
       state.isLoading = false;
       state.error = null;
     },
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
-      if (action.payload) {
-        state.userId = action.payload.id;
-      }
     },
     setAuthError: (state, action: PayloadAction<string>) => {
       state.error = action.payload;
@@ -56,41 +50,19 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    logout: () => ({ ...initialState }),
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
     setInitialized: (state, action: PayloadAction<boolean>) => {
       state.isInitialized = action.payload;
     },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addMatcher(authApi.endpoints.login.matchPending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
-        const result = action.payload?.result;
-        const token = result?.authToken ?? null;
-        state.token = token;
-        state.userId = result?.id ?? null;
-        state.isAuthenticated = !!token;
-        state.isLoading = false;
-        state.loginTime = token ? Date.now() : null;
-        state.error = token ? null : "Unable to retrieve access token";
-      })
-      .addMatcher(authApi.endpoints.login.matchRejected, (state, action) => {
-        state.isLoading = false;
-        state.isAuthenticated = false;
-        state.token = null;
-        state.error = action.error?.message ?? "Login failed";
-      });
+    // Keeps isInitialized = true so the app does not fall back to the splash.
+    logout: () => ({ ...initialState, isInitialized: true }),
   },
 });
 
 export const {
-  setCredentials,
+  setSession,
   setUser,
   setAuthError,
   clearError,
@@ -101,14 +73,19 @@ export const {
 
 // Selectors
 export const selectAuth = (state: { auth: AuthState }) => state.auth;
-export const selectAuthToken = (state: { auth: AuthState }) => state.auth.token;
+export const selectAuthToken = (state: { auth: AuthState }) =>
+  state.auth.accessToken;
 export const selectAuthUserId = (state: { auth: AuthState }) =>
-  state.auth.userId;
+  state.auth.user?.id ?? null;
 export const selectIsAuthenticated = (state: { auth: AuthState }) =>
   state.auth.isAuthenticated;
+export const selectIsInitialized = (state: { auth: AuthState }) =>
+  state.auth.isInitialized;
 export const selectAuthUser = (state: { auth: AuthState }) => state.auth.user;
-export const selectAuthRole = (state: { auth: AuthState }) =>
-  state.auth.user?.role ?? null;
+export const selectAuthRoles = (state: { auth: AuthState }) =>
+  state.auth.user?.roles;
+export const selectAuthPermissions = (state: { auth: AuthState }) =>
+  state.auth.user?.permissions;
 export const selectIsLoading = (state: { auth: AuthState }) =>
   state.auth.isLoading;
 export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;

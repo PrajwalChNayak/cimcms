@@ -1,22 +1,7 @@
-// Domain model
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import type { CurrentUserDto } from "@cimcms/contracts";
 
-// Redux slice state
-export interface AuthSliceState {
-  token: string | null;
-  userId: string | null;
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  isInitialized?: boolean;
-  loginTime?: number | null;
-}
+// Domain model (from contracts: id, email, name?, roles[], permissions[])
+export type User = CurrentUserDto;
 
 // Request DTOs
 export interface LoginRequest {
@@ -24,21 +9,15 @@ export interface LoginRequest {
   password: string;
 }
 
-// Response DTOs
-export interface LoginResponse {
-  authToken: string;
-  id: string;
-  email: string;
-  name: string;
-  role: string;
+// Response DTOs (inside the { statusCode, message, result } envelope).
+// The refresh token is never in the body: it is an HttpOnly cookie.
+export interface SessionResponse {
+  accessToken: string;
+  user: CurrentUserDto;
 }
-
-export interface MeResponse {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+export type LoginResponse = SessionResponse;
+export type RefreshResponse = SessionResponse;
+export type MeResponse = CurrentUserDto;
 
 // Form state
 export interface LoginFormState {

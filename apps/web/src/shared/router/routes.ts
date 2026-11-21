@@ -54,14 +54,14 @@ export const protectedRoutes: RouteConfig[] = [
     path: "/devices",
     element: "DevicesPage",
     layout: "DashboardLayout",
-    permissions: [],
+    permissions: ["DEVICE_READ"],
     roles: [],
   },
   {
     path: "/devices/:deviceId",
     element: "DeviceDetailPage",
     layout: "DashboardLayout",
-    permissions: [],
+    permissions: ["DEVICE_READ"],
     roles: [],
   },
   {

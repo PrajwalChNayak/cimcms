@@ -1,4 +1,6 @@
 import {
+    selectAuthPermissions,
+    selectAuthRoles,
     selectCurrentUser,
     selectIsAuthenticated,
 } from "@store/slices/authSlice.ts";
@@ -14,7 +16,7 @@ interface ProtectedRouteProps {
 }
 
 /**
- * ProtectedRoute component - Enhanced with comprehensive debugging
+ * ProtectedRoute: requires a signed-in user and enforces route permissions/roles
  */
 export const ProtectedRoute = ({
     children,
@@ -26,29 +28,23 @@ export const ProtectedRoute = ({
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
 
-    // No role/permission data is stored — empty arrays always grant access
-    const canAccess =
-        requiredPermissions.length === 0 && requiredRoles.length === 0;
+    const userPermissions = useSelector(selectAuthPermissions) ?? [];
+    const userRoles = useSelector(selectAuthRoles) ?? [];
 
-    console.log("🛡️ ProtectedRoute Check:", {
-        pathname: location.pathname,
-        isAuthenticated,
-        userId: (user as { id?: string } | null)?.id,
-        requiredPermissions,
-        requiredRoles,
-        canAccess,
-        fallbackPath,
-    });
+    // Enforced from the signed-in user (CurrentUserDto). Every listed permission
+    // is required; any one of the listed roles is enough. Server still enforces.
+    const canAccess =
+        requiredPermissions.every((p) => userPermissions.includes(p)) &&
+        (requiredRoles.length === 0 ||
+            requiredRoles.some((r) => userRoles.includes(r)));
 
     // Not authenticated - redirect to login
     if (!isAuthenticated) {
-        console.log("🛡️ Redirecting to login: User not authenticated");
         return <Navigate to={fallbackPath} state={{ from: location }} replace />;
     }
 
     // Authenticated but no access - redirect to forbidden
     if (!canAccess) {
-        console.log("🛡️ Redirecting to 403: User lacks required permissions/roles");
         return (
             <Navigate
                 to="/403"
@@ -63,7 +59,6 @@ export const ProtectedRoute = ({
         );
     }
 
-    console.log("🛡️ Access granted, rendering protected content");
     // Authenticated and has access - render children
     return <>{children}</>;
 };
@@ -123,7 +118,7 @@ interface AdminRouteProps {
  */
 export const AdminRoute = ({ children, fallbackPath = "/403" }: AdminRouteProps) => {
     return (
-        <ProtectedRoute requiredRoles={["admin"]} fallbackPath={fallbackPath}>
+        <ProtectedRoute requiredRoles={["ADMIN", "SUPER_ADMIN"]} fallbackPath={fallbackPath}>
             {children}
         </ProtectedRoute>
     );

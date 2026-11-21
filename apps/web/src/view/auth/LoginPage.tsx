@@ -1,6 +1,6 @@
 
 import { useLoginMutation } from "@api/authApi";
-import { setCredentials } from "@store/slices/authSlice";
+import { setSession } from "@store/slices/authSlice";
 import { type FormEvent, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -88,13 +88,7 @@ const LoginPage: React.FC = () => {
 
     try {
       const response = await login({ email, password }).unwrap();
-      dispatch(
-        setCredentials({
-          token: response.result.authToken,
-          userId: response.result.id,
-          loginTime: Date.now(),
-        }),
-      );
+      dispatch(setSession(response.result));
       navigate("/dashboard", { replace: true });
     } catch (err) {
       const message =

@@ -4,50 +4,8 @@ import { logout } from "@store/slices/authSlice";
 import { addToast } from "@store/slices/toastSlice";
 
 export const authMiddleware: Middleware =
-  (store: MiddlewareAPI) => (next) => (action) => {
-    const result = next(action);
-    const typedAction = action as { type?: string };
-
-    if (typedAction.type?.startsWith("auth/")) {
-      if (import.meta.env.DEV) {
-        const authState = store.getState().auth as {
-          isAuthenticated: boolean;
-          token: string | null;
-          userId?: string | null;
-        };
-        console.log(`🔐 Auth action: ${typedAction.type}`, {
-          isAuthenticated: authState.isAuthenticated,
-          hasToken: !!authState.token,
-          userId: authState.userId,
-        });
-      }
-    }
-
-    if (typedAction.type === "persist/REHYDRATE") {
-      const persistedAuth = (
-        action as {
-          payload?: {
-            auth?: {
-              isAuthenticated?: boolean;
-              token?: string;
-              loginTime?: number;
-            };
-          };
-        }
-      ).payload?.auth;
-
-      if (persistedAuth && import.meta.env.DEV) {
-        console.log("🔄 Auth state rehydrated from persistence", {
-          isAuthenticated: persistedAuth.isAuthenticated,
-          hasToken: !!persistedAuth.token,
-          loginTime: persistedAuth.loginTime
-            ? new Date(persistedAuth.loginTime).toLocaleString()
-            : null,
-        });
-      }
-    }
-
-    return result;
+  (_store: MiddlewareAPI) => (next) => (action) => {
+    return next(action);
   };
 
 export const errorMiddleware: Middleware =
@@ -65,7 +23,17 @@ export const errorMiddleware: Middleware =
         ).payload ?? (action as { error?: { status?: number } }).error;
       const status = (error as { status?: number })?.status;
 
-      if (status === 401) {
+      const endpointName = (
+        action as { meta?: { arg?: { endpointName?: string } } }
+      ).meta?.arg?.endpointName;
+      // Auth endpoints handle their own 401 (bad password / no session at boot).
+      const isAuthEndpoint =
+        endpointName !== undefined &&
+        ["login", "refresh", "logout"].includes(endpointName);
+
+      if (isAuthEndpoint) {
+        // no global toast/logout: the caller shows the error
+      } else if (status === 401) {
         store.dispatch(logout());
         store.dispatch(
           addToast({

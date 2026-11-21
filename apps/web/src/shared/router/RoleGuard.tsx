@@ -1,77 +1,56 @@
+import { useAppSelector } from "@store/hooks";
+import { selectAuthPermissions, selectAuthRoles } from "@store/slices/authSlice";
 import type { ReactNode } from "react";
-import { useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 
-interface AuthState {
-    roles: string[];
-    permissions: string[];
-}
-
-interface RootState {
-    auth: AuthState;
-}
-
 interface RoleGuardProps {
-    children: ReactNode;
-    allowedRoles?: string[];
-    allowedPermissions?: string[];
-    requireAll?: boolean;
-    fallback?: ReactNode;
-    redirectTo?: string;
+  children: ReactNode;
+  allowedRoles?: string[];
+  allowedPermissions?: string[];
+  requireAll?: boolean;
+  fallback?: ReactNode;
+  redirectTo?: string;
 }
 
 /**
- * Role-based Guard Component
- * Provides fine-grained access control based on roles and permissions
+ * Role/permission guard. Reads `state.auth.user.roles / permissions`
+ * (CurrentUserDto). The UI only hides things: the server always enforces.
  */
 const RoleGuard = ({
-    children,
-    allowedRoles = [],
-    allowedPermissions = [],
-    requireAll = false,
-    fallback = null,
-    redirectTo = "/unauthorized",
+  children,
+  allowedRoles = [],
+  allowedPermissions = [],
+  requireAll = false,
+  fallback = null,
+  redirectTo = "/403",
 }: RoleGuardProps) => {
-    const userRoles = useSelector((state: RootState) => state.auth.roles);
-    const userPermissions = useSelector(
-        (state: RootState) => state.auth.permissions,
-    );
+  const userRoles = useAppSelector(selectAuthRoles) ?? [];
+  const userPermissions = useAppSelector(selectAuthPermissions) ?? [];
 
-    // Check role access
-    let hasRoleAccess = true;
-    if (allowedRoles.length > 0) {
-        if (requireAll) {
-            hasRoleAccess = allowedRoles.every((role) => userRoles.includes(role));
-        } else {
-            hasRoleAccess = allowedRoles.some((role) => userRoles.includes(role));
-        }
-    }
+  const check = (needed: string[], have: string[]) =>
+    needed.length === 0 ||
+    (requireAll
+      ? needed.every((n) => have.includes(n))
+      : needed.some((n) => have.includes(n)));
 
-    // Check permission access
-    let hasPermissionAccess = true;
-    if (allowedPermissions.length > 0) {
-        if (requireAll) {
-            hasPermissionAccess = allowedPermissions.every((permission) =>
-                userPermissions.includes(permission),
-            );
-        } else {
-            hasPermissionAccess = allowedPermissions.some((permission) =>
-                userPermissions.includes(permission),
-            );
-        }
-    }
+  const hasRoleAccess = check(allowedRoles, userRoles);
+  const hasPermissionAccess = check(allowedPermissions, userPermissions);
 
-    // Grant access if user has either role OR permission access
-    // (unless requireAll is true, then they need both)
-    const hasAccess = requireAll
-        ? hasRoleAccess && hasPermissionAccess
-        : hasRoleAccess || hasPermissionAccess;
+  // Default: either a matching role OR a matching permission grants access
+  // (only a constraint that was actually given counts). requireAll: both.
+  const constrained = allowedRoles.length > 0 || allowedPermissions.length > 0;
+  const hasAccess = !constrained
+    ? true
+    : requireAll
+      ? hasRoleAccess && hasPermissionAccess
+      : (allowedRoles.length > 0 && hasRoleAccess) ||
+        (allowedPermissions.length > 0 && hasPermissionAccess);
 
-    if (!hasAccess) {
-        return fallback ?? <Navigate to={redirectTo} replace />;
-    }
+  if (!hasAccess) {
+    return fallback ?? <Navigate to={redirectTo} replace />;
+  }
 
-    return <>{children}</>;
+  return <>{children}</>;
 };
 
 export default RoleGuard;

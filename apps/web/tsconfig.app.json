@@ -28,7 +28,8 @@
       "@viewModels/*": ["./src/viewmodels/*"],
       "@pages/*": ["./src/pages/*"],
       "@components/*": ["./src/components/*"],
-      "@view/*": ["./src/view/*"]
+      "@view/*": ["./src/view/*"],
+      "@features/*": ["./src/features/*"]
     },
 
     /* Linting */
