@@ -1,3 +1,4 @@
+import requestId from "@middleware/requestid.middleware";
 import errorHandler from "@middleware/errorhandler.middleware";
 import apiRoute from "@routes/index.routes";
 import { apiReference } from "@scalar/express-api-reference";
@@ -20,7 +21,7 @@ import yaml from "yamljs";
  * Builds the Express app without listening, so tests can use it with supertest.
  *
  * Middleware order (T0.4):
- *   trust proxy -> [requestId, T0.6] -> api docs -> helmet -> cors -> json
+ *   trust proxy -> requestId -> api docs -> helmet -> cors -> json
  *   -> cookies -> general rate limit -> routes -> 404 -> error handler
  */
 export const createApp = (): Express => {
@@ -29,7 +30,7 @@ export const createApp = (): Express => {
   // Behind Nginx: the rate limiter needs the real client IP (1 proxy hop).
   app.set("trust proxy", 1);
 
-  // TODO(T0.6): app.use(requestId) goes here.
+  app.use(requestId);
 
   // Mounted before helmet so the docs page is not broken by the strict CSP.
   if (process.env.API_DOCS_ENABLED === "true") {

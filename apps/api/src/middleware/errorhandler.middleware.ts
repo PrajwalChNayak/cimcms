@@ -20,6 +20,7 @@ interface MappedError {
   statusCode?: number;
   errorCode?: string;
   message?: string;
+  details?: unknown;
   stack?: string;
 }
 
@@ -464,6 +465,7 @@ const errorHandler = async (
   const details = {
     message,
     errorCode,
+    requestId: req.requestId,
     path: req.path,
     method: req.method,
     ip: req.ip,
@@ -484,6 +486,8 @@ const errorHandler = async (
     status: Constants.FAILED_STATUS,
     message,
     errorCode,
+    requestId: req.requestId,
+    ...(mapped.details === undefined ? {} : { details: mapped.details }),
   });
 };
 

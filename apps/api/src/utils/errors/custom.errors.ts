@@ -3,9 +3,16 @@ export class AppError extends Error {
   errorCode: string;
   status: string;
   isOperational: boolean;
+  details?: unknown;
 
-  constructor(message: string, statusCode: number, errorCode: string) {
+  constructor(
+    message: string,
+    statusCode: number,
+    errorCode: string,
+    details?: unknown,
+  ) {
     super(message);
+    this.details = details;
     this.statusCode = statusCode;
     this.errorCode = errorCode;
     this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
@@ -14,8 +21,8 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message, 400, "VALIDATION_ERROR");
+  constructor(message: string, errorCode = "VALIDATION_ERROR", details?: unknown) {
+    super(message, 400, errorCode, details);
   }
 }
 
