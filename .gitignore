@@ -13,3 +13,7 @@ coverage/
 # Playwright
 playwright-report/
 test-results/
+
+# Local dev infra secrets
+infra/dev/mosquitto/passwd
+infra/dev/.dev-credentials.local
