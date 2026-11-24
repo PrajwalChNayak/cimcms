@@ -11,14 +11,19 @@
     "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
+    "postinstall": "prisma generate --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@cimcms/contracts": "*",
     "@prisma/client": "^6.10.1",
     "aedes": "^1.2.0",
     "argon2": "^0.44.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "prisma": "^6.10.1"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
@@ -28,5 +33,12 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "vitest": "^5.1.1"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./prisma": {
+      "types": "./src/generated/prisma/index.d.ts",
+      "default": "./src/generated/prisma/index.js"
+    }
   }
 }

@@ -1,11 +1,12 @@
 # CIMCMS own MQTT broker (@cimcms/broker) on the server (148.135.137.198). Replaces the
 # Mosquitto container (infra/server-mosquitto, superseded). Switch-over steps: README.md.
 #
-#   cp .env.example /opt/cimcms/secrets/broker.env   (outside git, chmod 600; fill in DATABASE_URL)
+#   cp .env.example /opt/cimcms/secrets/broker.env   (outside git, chmod 600; fill in BROKER_DATABASE_URL)
 #   docker compose up -d --build
 #
-# Logins come from table MqttAccount and retained messages from MqttRetained in the CIMCMS
-# database. The broker never runs migrations (the API does). Ports stay 1883 (and 8883 with TLS),
+# Logins come from table MqttAccount and retained messages from MqttRetained in the broker's own
+# database (BROKER_DATABASE_URL). The entrypoint applies the broker migrations at start.
+# Ports stay 1883 (and 8883 with TLS),
 # so the Humidifier and other clients need no change.
 name: cimcms-broker
 

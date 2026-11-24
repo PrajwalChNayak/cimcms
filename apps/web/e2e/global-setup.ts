@@ -3,12 +3,13 @@ import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import net from "node:net";
 import path from "node:path";
-import { API_DIR, BROKER_DIR, E2E, WEB_DIR, adminDatabaseUrl, databaseUrl } from "./support/env";
+import { API_DIR, BROKER_DIR, E2E, WEB_DIR, adminDatabaseUrl, brokerDatabaseUrl, databaseUrl } from "./support/env";
 
 /**
- * Expects a local PostgreSQL (see E2E.pgHost/pgPort in support/env.ts). Resets the scratch database
- * `cimcms_e2e` (NEVER the plain `cimcms` db), applies migrations, seeds it (users, LED-01 and the
- * broker logins in MqttAccount), starts the own broker (apps/broker, tsx) on free ports and waits
+ * Expects a local PostgreSQL (see E2E.pgHost/pgPort in support/env.ts). Resets the scratch databases
+ * `cimcms_e2e` (app) and `cimcms_e2e_broker` (broker; NEVER the plain `cimcms` dbs), applies both
+ * migration sets, seeds them (users and LED-01 in the app db, the broker logins in MqttAccount of
+ * the broker db), starts the own broker (apps/broker, tsx) on free ports and waits
  * for its /health, then starts the API (tsx) against that broker and waits for /health/ready.
  * No Mosquitto and no passwd file are needed. The web dev server is started by Playwright
  * `webServer`. The device simulator is started per spec (support/led-sim.ts) because tests
@@ -119,6 +120,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   if (E2E.dbName === "cimcms" || !E2E.dbName.startsWith("cimcms_e2e")) {
     throw new Error("E2E_DB_NAME must start with cimcms_e2e (never use the dev database)");
   }
+  if (!E2E.brokerDbName.startsWith("cimcms_e2e") || E2E.brokerDbName === E2E.dbName) {
+    throw new Error("E2E_BROKER_DB_NAME must start with cimcms_e2e and differ from E2E_DB_NAME");
+  }
   if (!(await tcpUp(E2E.pgHost, E2E.pgPort))) {
     throw new Error(
       `PostgreSQL is not reachable on ${E2E.pgHost}:${E2E.pgPort}. Start a local one (see e2e/support/env.ts) or set E2E_PG_HOST/E2E_PG_PORT/E2E_PG_USER/E2E_PG_PASSWORD.`,
@@ -137,6 +141,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     PORT: String(E2E.apiPort),
     MAIN_ROUTE: E2E.mainRoute,
     DATABASE_URL: databaseUrl,
+    BROKER_DATABASE_URL: brokerDatabaseUrl,
     DB_DIALECT: "postgresql",
     JWT_SECRET_KEY: randomBytes(32).toString("base64url"),
     SESSION_SECRET_KEY: randomBytes(32).toString("base64url"),
@@ -178,23 +183,32 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 
   const tsxCli = createRequire(path.join(API_DIR, "package.json")).resolve("tsx/cli");
 
-  // 1. reset the scratch DB (guarded name; Prisma raw statements, no psql/docker needed)
-  run(
-    process.execPath,
-    [tsxCli, path.join(WEB_DIR, "e2e/support/reset-db.api.ts")],
-    API_DIR,
-    { ...env, E2E_ADMIN_DATABASE_URL: adminDatabaseUrl, E2E_DB_NAME: E2E.dbName },
-    "reset scratch database",
-  );
+  // 1. reset both scratch DBs (guarded names; Prisma raw statements, no psql/docker needed)
+  for (const name of [E2E.dbName, E2E.brokerDbName]) {
+    run(
+      process.execPath,
+      [tsxCli, path.join(WEB_DIR, "e2e/support/reset-db.api.ts")],
+      API_DIR,
+      { ...env, E2E_ADMIN_DATABASE_URL: adminDatabaseUrl, E2E_DB_NAME: name },
+      `reset scratch database ${name}`,
+    );
+  }
 
-  // 2. schema (real migrations) + seed (incl. broker logins in MqttAccount)
-  run("npx", ["prisma", "migrate", "deploy"], API_DIR, env, "prisma migrate deploy");
+  // 2. schemas (real migrations of app and broker) + seed (broker logins go to the broker db)
+  run("npx", ["prisma", "migrate", "deploy"], API_DIR, env, "prisma migrate deploy (app)");
+  run(
+    "npx",
+    ["prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"],
+    BROKER_DIR,
+    env,
+    "prisma migrate deploy (broker)",
+  );
   run(process.execPath, [tsxCli, path.join(WEB_DIR, "e2e/support/seed.api.ts")], API_DIR, env, "seed");
 
   // 3. own broker (never runs migrations; TLS off because no cert/key)
   const broker = startChild([tsxCli, "src/main.ts"], BROKER_DIR, {
     ...process.env,
-    DATABASE_URL: databaseUrl,
+    BROKER_DATABASE_URL: brokerDatabaseUrl,
     BROKER_PORT: process.env.E2E_BROKER_PORT,
     BROKER_HEALTH_PORT: process.env.E2E_BROKER_HEALTH_PORT,
     BROKER_TLS_CERT: "",

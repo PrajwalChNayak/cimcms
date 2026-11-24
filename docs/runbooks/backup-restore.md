@@ -1,6 +1,6 @@
 # Runbook: backup and restore (T4.4)
 
-Scope: the production PostgreSQL database (compose service `postgres`, database `cimcms`), plus the files that are not in Git: Mosquitto config, ACL and password files, and `/opt/cimcms/secrets`.
+Scope: the production PostgreSQL databases (compose service `postgres`: app database `cimcms` and broker database `cimcms_broker`), plus the files that are not in Git: Mosquitto config, ACL and password files, and `/opt/cimcms/secrets`.
 
 Scripts: `infra/prod/scripts/backup-postgres.sh`, `infra/prod/scripts/restore-postgres.sh`. They run on the server, use `docker compose exec` on the `postgres` service and read the credentials from inside the container (`postgres.env`), so no password appears on a command line or in the scripts.
 
@@ -10,7 +10,8 @@ Placeholders: `<repo>` = the checkout on the server (for example `/opt/cimcms/re
 
 | Item | How | Where it lives |
 |---|---|---|
-| PostgreSQL `cimcms` (all tables, including telemetry and the `_prisma_migrations` history) | `backup-postgres.sh` (`pg_dump --format=custom`) | `/var/backups/cimcms/` |
+| PostgreSQL `cimcms` (all tables, including telemetry and the `_prisma_migrations` history) | `backup-postgres.sh` (`pg_dump --format=custom`), `postgres-<date>.dump` | `/var/backups/cimcms/` |
+| PostgreSQL `cimcms_broker` (broker logins `MqttAccount`, retained messages `MqttRetained`, own `_prisma_migrations`) | same run of `backup-postgres.sh`, `broker-<date>.dump` (`BROKER_DB` overrides the name; `BROKER_DB=` skips it) | `/var/backups/cimcms/` |
 | Mosquitto config, ACL, passwd, `/var/lib/mosquitto` | manual / your own cron, see section 5 | encrypted store |
 | `/opt/cimcms/secrets` (`api.env`, `postgres.env`) | manual, see section 5 | encrypted store ONLY |
 | Let's Encrypt (`/etc/letsencrypt`) | optional; certificates can be re-issued | - |
@@ -56,6 +57,8 @@ cd <repo>/infra/prod
 docker compose stop api
 ./scripts/backup-postgres.sh                      # safety copy of the current state
 TARGET_DB=cimcms ./scripts/restore-postgres.sh /var/backups/cimcms/postgres-<YYYY-MM-DD>.dump
+# broker database (stop the broker too: docker compose stop broker; start it again afterwards)
+TARGET_DB=cimcms_broker ./scripts/restore-postgres.sh /var/backups/cimcms/broker-<YYYY-MM-DD>.dump
 docker compose start api                          # the entrypoint applies any newer migrations
 docker compose exec api curl -fsS http://localhost:3814/health/ready
 ```

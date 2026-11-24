@@ -46,7 +46,8 @@ chmod 600 api.env postgres.env broker.env
 Edit `api.env`, `postgres.env` and `broker.env` and replace every `<placeholder>`:
 
 - `JWT_SECRET_KEY`, `SESSION_SECRET_KEY`: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` or `openssl rand -base64 32`.
-- Postgres user, password and database (`cimcms`) in `postgres.env`; the same values in `DATABASE_URL` of `api.env` and `broker.env` (`postgresql://<user>:<password>@postgres:5432/cimcms?schema=public`, URL-encode special characters in the password).
+- Postgres user, password and database (`cimcms`) in `postgres.env`; the same user/password in `DATABASE_URL` of `api.env` (`postgresql://<user>:<password>@postgres:5432/cimcms?schema=public`) and in `BROKER_DATABASE_URL` of `api.env` and `broker.env` (`postgresql://<user>:<password>@postgres:5432/cimcms_broker?schema=public`; the broker has its own database, PROGRESS D27). URL-encode special characters in the password.
+- The broker database `cimcms_broker` is created by `infra/prod/postgres-init/create-broker-db.sql` when the postgres volume is NEW (first start). On an existing volume create it by hand once: `docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE cimcms_broker"'`.
 - `APP_BASE_URL=https://<domain>`, `MQTT_URL=mqtt://broker:1883` (the API reaches the broker over the private compose network), `MQTT_USERNAME=cimcms-backend`, `MQTT_PASSWORD` from section 3.5 (password manager), `MQTT_CLIENT_ID=cimcms-backend` (must differ from dev).
 - Device broker accounts: `MQTT_PROVISIONING=broker` (default): adding a device in the web app creates its login in `MqttAccount`, shows the password once, and Reset password / delete work from the device page. `MQTT_DEVICE_URL=mqtts://<broker-host>:8883` is the public address the web app shows with each device account. There are no `MQTT_ADMIN_*` settings any more. `manual` is only for an external broker.
 - `API_DOCS_ENABLED=false`, `REFRESH_COOKIE_PATH=/api/user/token`, `MAIN_ROUTE` equal to the value in `infra/prod/.env` (default `api/v1`).
@@ -93,7 +94,7 @@ docker compose ps
 docker compose logs --tail 50 postgres api broker
 ```
 
-Expected: `postgres` becomes healthy, then `api` starts: its entrypoint first runs `prisma migrate deploy` (creates or updates the schema; the log lists the applied migrations), then the API. `broker` starts once postgres is healthy (it never runs migrations; until the api has applied them its logins fail, so check its log after the api is up). Then `web` starts. `docker compose ps` shows no published port for `postgres` and `api`; `web` has 80 and 443, `broker` 1883 and 8883.
+Expected: `postgres` becomes healthy (on a new volume it also creates `cimcms_broker`), then `api` starts: its entrypoint first runs `prisma migrate deploy` on the app database (the log lists the applied migrations), then the API. `broker` starts once postgres is healthy: its entrypoint runs `prisma migrate deploy` on the broker database (`apps/broker/prisma/migrations`), then the broker. Then `web` starts. `docker compose ps` shows no published port for `postgres` and `api`; `web` has 80 and 443, `broker` 1883 and 8883.
 
 The `api` healthcheck calls `/health/ready` (database and broker reachable). The `broker` healthcheck calls `GET /health` on port 8081 inside the container (`docker compose exec broker curl -fsS http://localhost:8081/health`).
 
@@ -138,11 +139,25 @@ Follow `docs/runbooks/backup-restore.md` section 2 and run one backup now.
 3. `cd <repo> && git fetch && git checkout <release-ref>`.
 4. Build or pull the new images with tag `<new-tag>` (section 2). Keep the previous images on the server.
 5. Set `CIMCMS_TAG=<new-tag>` in `infra/prod/.env`.
-6. `docker compose up -d` (recreates `api`, `broker` and `web`; clients reconnect to the broker within seconds; postgres is untouched unless its definition changed). The new `api` container applies pending migrations before it starts.
+6. `docker compose up -d` (recreates `api`, `broker` and `web`; clients reconnect to the broker within seconds; postgres is untouched unless its definition changed). The new `api` container applies pending app migrations and the new `broker` container pending broker migrations before they start.
 7. Check: `docker compose ps`; `docker compose logs --tail 100 api`; `docker compose exec api curl -fsS http://localhost:3814/health/ready`; open the site and log in.
 8. Run the smoke checklist (section 6) when the release changes behaviour.
 
-Schema changes ship as Prisma migration files (`apps/api/src/models/tables/migrations`) and the api entrypoint applies them (`prisma migrate deploy`). Take the backup in step 1 first. Never run `prisma db push`, `migrate dev` or `migrate reset` against production. To check state: `docker compose exec api node node_modules/prisma/build/index.js migrate status --schema ./prisma/schema.prisma`.
+Schema changes ship as Prisma migration files: app database `apps/api/src/models/tables/migrations` (api entrypoint), broker database `apps/broker/prisma/migrations` (broker entrypoint); both run `prisma migrate deploy`. Take the backup in step 1 first. Never run `prisma db push`, `migrate dev` or `migrate reset` against production. To check state: `docker compose exec api node node_modules/prisma/build/index.js migrate status --schema ./prisma/schema.prisma` and `docker compose exec broker node node_modules/prisma/build/index.js migrate status --schema ./prisma/schema.prisma`.
+
+### Upgrade to the separate broker database (first release with PROGRESS D27)
+
+Older releases kept `MqttAccount` / `MqttRetained` in the app database `cimcms`; the new api migration `20261124090000_move_broker_tables_out` drops them there. Copy the rows first, in this order:
+
+1. Backup (step 1 above). Add `BROKER_DATABASE_URL` to `api.env` and replace `DATABASE_URL` with `BROKER_DATABASE_URL` in `broker.env` (section 3.1).
+2. Create the broker database (existing volume): `docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE cimcms_broker"'`.
+3. Set the new `CIMCMS_TAG`, then start ONLY the new broker so it creates its tables: `docker compose up -d --no-deps broker` (check `docker compose logs broker` for the applied migration). Do not start the new api yet.
+4. Copy the rows (the old tables still exist because the new api has not run):
+   ```bash
+   docker compose exec -T postgres sh -c 'pg_dump --data-only --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t "\"MqttAccount\"" -t "\"MqttRetained\"" | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d cimcms_broker'
+   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d cimcms_broker -c "SELECT count(*) FROM \"MqttAccount\""'
+   ```
+5. `docker compose up -d` (the new api drops the old tables), `docker compose restart broker` (reloads retained messages), then step 7.
 
 ## 5. Rollback
 

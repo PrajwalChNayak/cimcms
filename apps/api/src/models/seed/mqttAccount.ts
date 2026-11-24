@@ -1,5 +1,5 @@
 import { DEVICE_TYPES, type DeviceType } from "@cimcms/contracts";
-import type { MqttAccountKind, PrismaClient } from "@prisma/client";
+import type { BrokerPrismaClient as PrismaClient, MqttAccountKind } from "@models/broker-prisma.client";
 import Argon from "@utils/argon.utils";
 import { newMqttPassword } from "@utils/mqttpassword.utils";
 

@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import prisma from "@models/prisma.client";
+import brokerPrisma from "@models/broker-prisma.client";
 import {
   deleteMqttAccount,
   listMqttAccounts,
@@ -19,12 +19,12 @@ const upsertCmd = (argv: string[]): Upsert => {
   return cmd;
 };
 
-const cleanup = () => prisma.mqttAccount.deleteMany({ where: { username: { in: NAMES } } });
+const cleanup = () => brokerPrisma.mqttAccount.deleteMany({ where: { username: { in: NAMES } } });
 
 beforeEach(cleanup);
 afterAll(async () => {
   await cleanup();
-  await prisma.$disconnect();
+  await brokerPrisma.$disconnect();
 });
 
 describe("parseMqttAccountArgs", () => {
@@ -61,33 +61,33 @@ describe("parseMqttAccountArgs", () => {
 describe("upsert / delete / list", () => {
   it("creates with a generated password, and re-running sets a new one", async () => {
     const cmd = upsertCmd(["--username", "cli-svc", "--kind", "service", "--note", "backend"]);
-    const first = await upsertMqttAccount(prisma, cmd);
+    const first = await upsertMqttAccount(brokerPrisma, cmd);
     expect(first).toMatchObject({ created: true, generated: true });
     expect(first.password).toMatch(/^[A-Za-z0-9]{32}$/);
-    const row1 = (await prisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-svc" } }))!;
+    const row1 = (await brokerPrisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-svc" } }))!;
     expect(row1).toMatchObject({ kind: "SERVICE", note: "backend", enabled: true, deviceId: null });
     expect(await Argon.verifyPassword(first.password, row1.passwordHash)).toBe(true);
 
-    const second = await upsertMqttAccount(prisma, cmd);
+    const second = await upsertMqttAccount(brokerPrisma, cmd);
     expect(second.created).toBe(false);
     expect(second.password).not.toBe(first.password);
-    const row2 = await prisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-svc" } });
+    const row2 = await brokerPrisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-svc" } });
     expect(row2.id).toBe(row1.id);
     expect(await Argon.verifyPassword(first.password, row2.passwordHash)).toBe(false);
     expect(await Argon.verifyPassword(second.password, row2.passwordHash)).toBe(true);
   });
 
   it("uses a given password (MQTT_ACCOUNT_PASSWORD) and stores device fields", async () => {
-    const legacy = await upsertMqttAccount(prisma, upsertCmd(["--username", "cli-legacy", "--kind", "legacy"]), "keep-me");
+    const legacy = await upsertMqttAccount(brokerPrisma, upsertCmd(["--username", "cli-legacy", "--kind", "legacy"]), "keep-me");
     expect(legacy).toMatchObject({ generated: false, password: "keep-me" });
-    const l = await prisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-legacy" } });
+    const l = await brokerPrisma.mqttAccount.findUniqueOrThrow({ where: { username: "cli-legacy" } });
     expect(await Argon.verifyPassword("keep-me", l.passwordHash)).toBe(true);
 
     await upsertMqttAccount(
-      prisma,
+      brokerPrisma,
       upsertCmd(["--username", "LED-CLI-1", "--kind", "device", "--device-type", "LED_CONTROLLER"]),
     );
-    expect(await prisma.mqttAccount.findUnique({ where: { deviceId: "LED-CLI-1" } })).toMatchObject({
+    expect(await brokerPrisma.mqttAccount.findUnique({ where: { deviceId: "LED-CLI-1" } })).toMatchObject({
       username: "LED-CLI-1",
       kind: "DEVICE",
       deviceType: "LED_CONTROLLER",
@@ -95,13 +95,13 @@ describe("upsert / delete / list", () => {
   });
 
   it("lists without hashes and deletes", async () => {
-    await upsertMqttAccount(prisma, upsertCmd(["--username", "cli-svc", "--kind", "service"]));
-    const rows = (await listMqttAccounts(prisma)).filter((r) => NAMES.includes(r.username));
+    await upsertMqttAccount(brokerPrisma, upsertCmd(["--username", "cli-svc", "--kind", "service"]));
+    const rows = (await listMqttAccounts(brokerPrisma)).filter((r) => NAMES.includes(r.username));
     expect(rows).toHaveLength(1);
     expect(rows[0]).not.toHaveProperty("passwordHash");
 
-    expect(await deleteMqttAccount(prisma, "cli-svc")).toBe(true);
-    expect(await deleteMqttAccount(prisma, "cli-svc")).toBe(false);
-    expect(await prisma.mqttAccount.findUnique({ where: { username: "cli-svc" } })).toBeNull();
+    expect(await deleteMqttAccount(brokerPrisma, "cli-svc")).toBe(true);
+    expect(await deleteMqttAccount(brokerPrisma, "cli-svc")).toBe(false);
+    expect(await brokerPrisma.mqttAccount.findUnique({ where: { username: "cli-svc" } })).toBeNull();
   });
 });

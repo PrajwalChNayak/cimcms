@@ -5,6 +5,8 @@
 # Env overrides: COMPOSE_FILE, PG_EXEC (as in backup-postgres.sh), plus
 #   TARGET_DB  database to restore into (default: cimcms_restore_check, a scratch database).
 #              Restoring into the live database (cimcms) needs the api container stopped first.
+#              Broker dumps (broker-*.dump from backup-postgres.sh) go into the broker database
+#              (TARGET_DB=cimcms_broker; stop the broker and api containers first).
 # The target database is dropped and re-created, then the dump is restored into it.
 set -euo pipefail
 

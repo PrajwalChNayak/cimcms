@@ -1,0 +1,41 @@
+// CIMCMS MQTT broker database (separate from the application database).
+// Changes: npm run db:migrate -w @cimcms/broker ; production: npm run db:deploy -w @cimcms/broker
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BROKER_DATABASE_URL")
+}
+
+// Logins of the broker. The API writes them (Add device, Reset password, CLI);
+// the broker reads them on every connect, so changes apply at once.
+enum MqttAccountKind {
+  DEVICE // one device: only its own cimcms/<type>/<deviceId>/... topics; client ID must equal username
+  SERVICE // the CIMCMS API: device state topics in, command/config out
+  LEGACY // existing clients such as the Humidifier's mqttuser: full access
+}
+
+model MqttAccount {
+  id            String          @id @default(uuid()) @db.Uuid
+  username      String          @unique
+  passwordHash  String // argon2id; the password itself is never stored
+  kind          MqttAccountKind
+  deviceId      String?         @unique
+  deviceType    String?
+  enabled       Boolean         @default(true)
+  note          String?
+  createdAt     DateTime        @default(now())
+  passwordSetAt DateTime
+  updatedAt     DateTime        @updatedAt
+}
+
+// Retained messages, so they survive a broker restart (status, LWT, device config).
+model MqttRetained {
+  topic     String   @id
+  payload   Bytes
+  qos       Int
+  updatedAt DateTime @updatedAt
+}

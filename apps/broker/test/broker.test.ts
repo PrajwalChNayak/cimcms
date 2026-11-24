@@ -1,11 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/index.js";
 import argon2 from "argon2";
 import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { startBroker, type RunningBroker } from "../src/broker.js";
 
-// DATABASE_URL is set by test/setup/postgres.ts (global setup) before this file runs.
-const prisma = new PrismaClient();
+// BROKER_DATABASE_URL is set by test/setup/postgres.ts (global setup) before this file runs.
+const prisma = new PrismaClient({ datasourceUrl: process.env.BROKER_DATABASE_URL });
 
 // Throw-away passwords for accounts that exist only in the test database.
 const PW = { device: "device-pw-1", device3: "device-pw-3", service: "service-pw", legacy: "legacy-pw", disabled: "disabled-pw" };

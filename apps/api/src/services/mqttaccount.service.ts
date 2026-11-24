@@ -16,6 +16,7 @@ import Argon from "@utils/argon.utils";
 import { AppError } from "@utils/errors/custom.errors";
 import logger from "@utils/logger.utils";
 import { newMqttPassword } from "@utils/mqttpassword.utils";
+import brokerPrisma from "@models/broker-prisma.client";
 
 const PUBLISH_KINDS: readonly TopicKind[] = ["status", "telemetry", "ack", "event"];
 const SUBSCRIBE_KINDS: readonly TopicKind[] = ["command", "config"];
@@ -101,7 +102,7 @@ export default class MqttAccountService {
     const password = newMqttPassword();
     let existed: boolean;
     try {
-      const existing = await prisma.mqttAccount.findUnique({ where: { username: deviceId } });
+      const existing = await brokerPrisma.mqttAccount.findUnique({ where: { username: deviceId } });
       if (existing && existing.kind !== "DEVICE") {
         throw new AppError(
           `A ${existing.kind.toLowerCase()} broker account named ${deviceId} already exists`,
@@ -112,7 +113,7 @@ export default class MqttAccountService {
       existed = !!existing;
       const passwordHash = await Argon.hashPassword(password);
       const now = new Date();
-      await prisma.mqttAccount.upsert({
+      await brokerPrisma.mqttAccount.upsert({
         where: { username: deviceId },
         create: { username: deviceId, passwordHash, kind: "DEVICE", deviceId, deviceType: type, passwordSetAt: now },
         update: { passwordHash, kind: "DEVICE", deviceId, deviceType: type, enabled: true, passwordSetAt: now },
@@ -131,11 +132,11 @@ export default class MqttAccountService {
   static async resetPassword(id: string, actor: AccountActor = {}): Promise<MqttCredentialsDto> {
     MqttAccountService.requireBroker();
     const { deviceId, deviceType } = await MqttAccountService.device(id);
-    const record = await prisma.mqttAccount.findUnique({ where: { deviceId } });
+    const record = await brokerPrisma.mqttAccount.findUnique({ where: { deviceId } });
     if (!record) return MqttAccountService.provision(deviceId, deviceType, actor);
 
     const password = newMqttPassword();
-    await prisma.mqttAccount.update({
+    await brokerPrisma.mqttAccount.update({
       where: { id: record.id },
       data: { passwordHash: await Argon.hashPassword(password), deviceType, passwordSetAt: new Date() },
     });
@@ -149,16 +150,16 @@ export default class MqttAccountService {
    * its device, even when an operator created it by hand.
    */
   static async remove(deviceId: string, actor: AccountActor = {}): Promise<void> {
-    const record = await prisma.mqttAccount.findUnique({ where: { deviceId } });
+    const record = await brokerPrisma.mqttAccount.findUnique({ where: { deviceId } });
     if (!record) return;
-    await prisma.mqttAccount.delete({ where: { id: record.id } });
+    await brokerPrisma.mqttAccount.delete({ where: { id: record.id } });
     await MqttAccountService.audit("MQTT_ACCOUNT_REMOVED", deviceId, actor);
     MqttAccountService.notifyAccountChanged(record.username);
   }
 
   static async status(id: string): Promise<MqttAccountDto> {
     const { deviceId, deviceType } = await MqttAccountService.device(id);
-    const record = await prisma.mqttAccount.findUnique({ where: { deviceId } });
+    const record = await brokerPrisma.mqttAccount.findUnique({ where: { deviceId } });
     return {
       provisioning: MqttAccountService.mode(),
       exists: !!record,

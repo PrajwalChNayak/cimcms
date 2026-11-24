@@ -27,6 +27,8 @@ function freePort(): Promise<number> {
  * service in CI); otherwise starts a throw-away embedded PostgreSQL 16 (no Docker).
  * Applies the real migrations with `prisma migrate deploy`, so tests also prove the
  * migration files. DATABASE_URL is set before any worker imports the Prisma client.
+ * The broker schema (apps/broker/prisma) is migrated into the same database under
+ * `?schema=broker`, and BROKER_DATABASE_URL points there.
  */
 export async function setup(): Promise<void> {
   let url = process.env.TEST_DATABASE_URL;
@@ -53,20 +55,37 @@ export async function setup(): Promise<void> {
     url = `postgresql://postgres:${password}@127.0.0.1:${port}/cimcms_test?schema=public`;
   }
   process.env.DATABASE_URL = url;
+  // The broker tables live in their own database in production. Tests use a separate Postgres
+  // schema in the same test database, so the two _prisma_migrations tables do not clash.
+  const brokerUrl = withSchema(url, "broker");
+  process.env.BROKER_DATABASE_URL = brokerUrl;
 
   const apiDir = path.resolve(__dirname, "..", "..");
-  await execFileAsync(
-    process.execPath,
-    [
-      path.resolve(apiDir, "..", "..", "node_modules", "prisma", "build", "index.js"),
-      "migrate",
-      process.env.TEST_DATABASE_URL ? "reset" : "deploy",
-      ...(process.env.TEST_DATABASE_URL ? ["--force", "--skip-generate", "--skip-seed"] : []),
-      "--schema",
-      "src/models/tables/schema.prisma",
-    ],
-    { cwd: apiDir, env: { ...process.env, DATABASE_URL: url } },
-  );
+  const prismaCli = path.resolve(apiDir, "..", "..", "node_modules", "prisma", "build", "index.js");
+  const reset = Boolean(process.env.TEST_DATABASE_URL);
+  const migrate = (schema: string, env: NodeJS.ProcessEnv) =>
+    execFileAsync(
+      process.execPath,
+      [
+        prismaCli,
+        "migrate",
+        reset ? "reset" : "deploy",
+        ...(reset ? ["--force", "--skip-generate", "--skip-seed"] : []),
+        "--schema",
+        schema,
+      ],
+      { cwd: apiDir, env: { ...process.env, ...env } },
+    );
+
+  await migrate("src/models/tables/schema.prisma", { DATABASE_URL: url });
+  await migrate("../broker/prisma/schema.prisma", { BROKER_DATABASE_URL: brokerUrl });
+}
+
+/** Same connection string with `?schema=<schema>` (replacing any schema parameter). */
+function withSchema(url: string, schema: string): string {
+  const u = new URL(url);
+  u.searchParams.set("schema", schema);
+  return u.toString();
 }
 
 export async function teardown(): Promise<void> {

@@ -50,6 +50,14 @@ const isMode = (v: unknown): v is (typeof DEVICE_MODES)[number] =>
 
 /** Handles every inbound device message. One message at a time per device. */
 export default class IngestService {
+  /** Last history row written per device (for the telemetry throttle). */
+  private static lastStored = new Map<string, { key: string; at: number }>();
+
+  private static storeIntervalMs(): number {
+    const v = Number(process.env.TELEMETRY_STORE_INTERVAL_S ?? 10);
+    return Number.isFinite(v) && v >= 0 ? v * 1000 : 10_000;
+  }
+
   private static queues = new Map<string, Promise<void>>();
 
   /**
@@ -239,7 +247,15 @@ export default class IngestService {
 
     const stored = await DeviceStateService.get(deviceId);
     const pointTs = IngestService.timeSeriesTs(wire, now);
+    // History throttle: devices may report every second. A history row is written when the
+    // state changes (relays, mode, simulation) or TELEMETRY_STORE_INTERVAL_S has passed
+    // (default 10 s; 0 = every message). The live snapshot and the UI still update every message.
     const insertPoint = async (): Promise<void> => {
+      const key = `${state.relayStates.map((r) => (r ? 1 : 0)).join("")}|${wire.mode}|${wire.simulation_mode}`;
+      const last = IngestService.lastStored.get(deviceId);
+      const intervalMs = IngestService.storeIntervalMs();
+      if (last && last.key === key && now.getTime() - last.at < intervalMs) return;
+      IngestService.lastStored.set(deviceId, { key, at: now.getTime() });
       try {
         await TelemetryRepository.insert({
           ts: pointTs,

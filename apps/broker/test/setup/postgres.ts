@@ -27,7 +27,9 @@ function freePort(): Promise<number> {
 /**
  * Vitest global setup (same approach as apps/api/test/setup/postgres.ts).
  * Uses TEST_DATABASE_URL when set; otherwise starts a throw-away embedded PostgreSQL 16.
- * Applies the API's real migrations, and sets DATABASE_URL before any test creates a PrismaClient.
+ * Applies the broker's own migrations (prisma/schema.prisma) into the Postgres schema `broker`
+ * (so a TEST_DATABASE_URL shared with the API tests does not touch the app tables), and sets
+ * BROKER_DATABASE_URL before any test creates a PrismaClient.
  */
 export async function setup(): Promise<void> {
   let url = process.env.TEST_DATABASE_URL;
@@ -52,7 +54,10 @@ export async function setup(): Promise<void> {
     await pg.createDatabase("cimcms_test");
     url = `postgresql://postgres:${password}@127.0.0.1:${port}/cimcms_test?schema=public`;
   }
-  process.env.DATABASE_URL = url;
+  const u = new URL(url);
+  u.searchParams.set("schema", "broker");
+  const brokerUrl = u.toString();
+  process.env.BROKER_DATABASE_URL = brokerUrl;
 
   const brokerDir = path.resolve(here, "..", "..");
   await execFileAsync(
@@ -63,9 +68,9 @@ export async function setup(): Promise<void> {
       process.env.TEST_DATABASE_URL ? "reset" : "deploy",
       ...(process.env.TEST_DATABASE_URL ? ["--force", "--skip-generate", "--skip-seed"] : []),
       "--schema",
-      "../api/src/models/tables/schema.prisma",
+      "prisma/schema.prisma",
     ],
-    { cwd: brokerDir, env: { ...process.env, DATABASE_URL: url } },
+    { cwd: brokerDir, env: { ...process.env, BROKER_DATABASE_URL: brokerUrl } },
   );
 }
 

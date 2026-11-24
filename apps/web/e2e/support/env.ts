@@ -27,7 +27,7 @@ const randomPassword = (): string => randomBytes(18).toString("base64url");
 /**
  * Creates/extends e2e/.env.e2e (git-ignored) with random passwords when missing: the e2e users and
  * the two broker logins (API service account, LED-01 device account) that global-setup writes into
- * table MqttAccount of the scratch database. Never prints values.
+ * table MqttAccount of the scratch broker database. Never prints values.
  */
 function ensureE2eEnv(): Record<string, string> {
   const current = parseEnvFile(E2E_ENV_FILE);
@@ -64,6 +64,8 @@ export const E2E = {
   apiPort: Number(pick("E2E_API_PORT", fileEnv) ?? 3914),
   webPort: Number(pick("E2E_WEB_PORT", fileEnv) ?? 5273),
   dbName: pick("E2E_DB_NAME", fileEnv) ?? "cimcms_e2e",
+  /** Separate scratch database of the broker (MqttAccount, MqttRetained); also reset by global-setup. */
+  brokerDbName: pick("E2E_BROKER_DB_NAME", fileEnv) ?? `${pick("E2E_DB_NAME", fileEnv) ?? "cimcms_e2e"}_broker`,
   mainRoute: "api/v1",
   /**
    * A LOCAL PostgreSQL where the e2e run may drop/create the cimcms_e2e* database (for example
@@ -104,5 +106,7 @@ export const E2E = {
 export type E2eRole = keyof typeof E2E.users;
 export const baseURL = `http://localhost:${E2E.webPort}`;
 export const databaseUrl = `postgresql://${encodeURIComponent(E2E.pgUser)}:${encodeURIComponent(E2E.pgPassword)}@${E2E.pgHost}:${E2E.pgPort}/${E2E.dbName}?schema=public`;
+/** Broker database (apps/broker/prisma/schema.prisma), separate from the app database. */
+export const brokerDatabaseUrl = `postgresql://${encodeURIComponent(E2E.pgUser)}:${encodeURIComponent(E2E.pgPassword)}@${E2E.pgHost}:${E2E.pgPort}/${E2E.brokerDbName}?schema=public`;
 /** Maintenance database on the same server, used only to drop/create the scratch database. */
 export const adminDatabaseUrl = `postgresql://${encodeURIComponent(E2E.pgUser)}:${encodeURIComponent(E2E.pgPassword)}@${E2E.pgHost}:${E2E.pgPort}/postgres?schema=public`;

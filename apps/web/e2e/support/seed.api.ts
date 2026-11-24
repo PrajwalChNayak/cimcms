@@ -1,16 +1,19 @@
 /**
  * Runs with apps/api as cwd through tsx (so the API's tsconfig path aliases resolve):
  *   tsx e2e/support/seed.api.ts   (see global-setup.ts)
- * Seeds RBAC, device LED-01, the e2e users and the broker logins (MqttAccount: cimcms-backend
- * SERVICE, LED-01 DEVICE) into DATABASE_URL (a scratch database).
+ * Seeds RBAC, device LED-01 and the e2e users into DATABASE_URL, and the broker logins
+ * (MqttAccount: cimcms-backend SERVICE, LED-01 DEVICE) into BROKER_DATABASE_URL (both scratch
+ * databases).
  * Passwords come from E2E_*_PASSWORD env vars and are never printed.
  */
 import { PrismaClient } from "@prisma/client";
+import { BrokerPrismaClient } from "@models/broker-prisma.client";
 import { seedRbac } from "@models/seed/rbac";
 import { seedDevices } from "@models/seed/devices";
 import Argon from "@utils/argon.utils";
 
 const prisma = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+const brokerPrisma = new BrokerPrismaClient({ datasourceUrl: process.env.BROKER_DATABASE_URL });
 
 const USERS = [
   { email: "e2e-admin@cimcms.test", role: "ADMIN", pw: "E2E_ADMIN_PASSWORD" },
@@ -22,6 +25,9 @@ async function main(): Promise<void> {
   const url = process.env.DATABASE_URL ?? "";
   if (!/\/cimcms_e2e[^/?]*(\?|$)/.test(url)) {
     throw new Error("Refusing to seed: DATABASE_URL is not a cimcms_e2e* scratch database");
+  }
+  if (!/\/cimcms_e2e[^/?]*(\?|$)/.test(process.env.BROKER_DATABASE_URL ?? "")) {
+    throw new Error("Refusing to seed: BROKER_DATABASE_URL is not a cimcms_e2e* scratch database");
   }
 
   await seedRbac(prisma);
@@ -41,7 +47,7 @@ async function main(): Promise<void> {
     const link = await prisma.userRole.findFirst({ where: { userId: user.id, roleId: role.id } });
     if (!link) await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
   }
-  // Broker logins for the own broker (apps/broker reads table MqttAccount).
+  // Broker logins for the own broker (apps/broker reads table MqttAccount of its own database).
   const now = new Date();
   const accounts = [
     { username: "cimcms-backend", kind: "SERVICE", deviceId: null, deviceType: null, pw: "E2E_MQTT_BACKEND_PASSWORD" },
@@ -52,7 +58,7 @@ async function main(): Promise<void> {
     if (!password || password.length < 12) throw new Error(`${a.pw} must be set (min 12 chars)`);
     const passwordHash = await Argon.hashPassword(password);
     const data = { kind: a.kind, deviceId: a.deviceId, deviceType: a.deviceType, enabled: true, passwordHash, passwordSetAt: now, note: "e2e" };
-    await prisma.mqttAccount.upsert({ where: { username: a.username }, update: data, create: { username: a.username, ...data } });
+    await brokerPrisma.mqttAccount.upsert({ where: { username: a.username }, update: data, create: { username: a.username, ...data } });
   }
   console.log("e2e seed done");
 }
@@ -62,4 +68,4 @@ main()
     console.error("e2e seed failed:", e instanceof Error ? e.message : String(e));
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => Promise.all([prisma.$disconnect(), brokerPrisma.$disconnect()]));

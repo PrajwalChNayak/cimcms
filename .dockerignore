@@ -1,8 +1,11 @@
 # Root build context for apps/api, apps/web and apps/broker images (docker build -f apps/<app>/Dockerfile .)
-# apps/broker needs apps/api/src/models/tables/schema.prisma (shared Prisma schema): keep apps/api.
+# The broker has its own Prisma schema (apps/broker/prisma); the API image also generates the broker
+# client (it imports @cimcms/broker/prisma), so keep apps/broker in the context.
 .git
 **/node_modules
 **/dist
+# Generated Prisma clients are regenerated inside the image (host engines would be wrong/large).
+**/src/generated
 **/coverage
 **/.env
 **/.env.*

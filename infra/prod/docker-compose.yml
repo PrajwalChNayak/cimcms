@@ -3,7 +3,11 @@
 #   docker compose up -d
 # Secrets live OUTSIDE the repo in ${CIMCMS_SECRETS_DIR} (default /opt/cimcms/secrets, mode 600):
 #   api.env, postgres.env, broker.env. See docs/runbooks/deploy.md and docs/runbooks/broker.md.
-# The api container applies pending database migrations (prisma migrate deploy) before it starts.
+# Two databases in the one postgres container: the app database (POSTGRES_DB, default cimcms;
+# DATABASE_URL) and the broker database cimcms_broker (BROKER_DATABASE_URL; tables MqttAccount,
+# MqttRetained), created by postgres-init/create-broker-db.sql on a NEW volume only (existing
+# volume: create it by hand, see docs/runbooks/deploy.md). The api container applies the app
+# migrations and the broker container the broker migrations (prisma migrate deploy) at start.
 # D-3: exactly ONE api instance. Never add replicas or pm2 cluster mode.
 name: cimcms
 
@@ -49,13 +53,15 @@ services:
         condition: service_healthy
     logging: *default-logging
 
-  # Own MQTT broker (apps/broker). Logins: table MqttAccount, retained messages: MqttRetained.
-  # Never runs migrations (the api does). Runbook: docs/runbooks/broker.md.
+  # Own MQTT broker (apps/broker). Logins: table MqttAccount, retained messages: MqttRetained, in
+  # its own database (BROKER_DATABASE_URL). Its entrypoint applies the broker migrations before
+  # it starts. Runbook: docs/runbooks/broker.md.
+  # The api also writes MqttAccount (device logins), so api.env has the same BROKER_DATABASE_URL.
   broker:
     image: cimcms-broker:${CIMCMS_TAG:?set CIMCMS_TAG, e.g. 2025.01.01-1}
     restart: unless-stopped
     env_file:
-      # DATABASE_URL, same value as in api.env (postgres:5432 on the compose network)
+      # BROKER_DATABASE_URL (postgres:5432/cimcms_broker), same value as in api.env
       - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/broker.env
     environment:
       BROKER_PORT: "1883"
@@ -89,6 +95,8 @@ services:
       - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/postgres.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Creates the broker database cimcms_broker on first start (empty volume only).
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     # No published ports: reachable only as postgres:5432 on the compose network.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]

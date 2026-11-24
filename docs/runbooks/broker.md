@@ -1,8 +1,9 @@
 # Runbook: CIMCMS MQTT broker (HUMAN-ONLY on servers)
 
 The own broker `apps/broker` (`@cimcms/broker`, aedes) replaces Mosquitto (PROGRESS D26). It
-reads logins from the CIMCMS PostgreSQL database and keeps retained messages there, so there are
-no broker config, password or ACL files. No automated agent may SSH to a server or run these steps
+reads logins from its own PostgreSQL database (`BROKER_DATABASE_URL`, default name `cimcms_broker`,
+separate from the application database `DATABASE_URL`; PROGRESS D27) and keeps retained messages
+there, so there are no broker config, password or ACL files. No automated agent may SSH to a server or run these steps
 against a live broker.
 
 Related: `infra/server-broker/` (current server, switch-over and rollback), `infra/prod/docker-compose.yml`
@@ -18,8 +19,13 @@ Superseded: `docs/runbooks/mosquitto-hardening.md`, `infra/server-mosquitto/`, `
     (`cimcms/<type>/<deviceId>/status|telemetry|ack|event` publish, `command|config` subscribe).
   - `LEGACY`: old clients such as the Humidifier (`mqttuser`); keeps the topics they used under Mosquitto.
 - Table `MqttRetained`: retained messages (status, LWT, device config), restored at start.
-- The broker never runs migrations. The API applies them at start (`prisma migrate deploy`);
-  start/update the API first after a schema change.
+- Schema and migrations: `apps/broker/prisma/schema.prisma` and `apps/broker/prisma/migrations`
+  (own `_prisma_migrations` history; Prisma client generated into `apps/broker/src/generated/prisma`,
+  package subpath `@cimcms/broker/prisma`). The broker image's entrypoint applies them
+  (`prisma migrate deploy`) before the broker starts (`BROKER_MIGRATE=false` skips that). Local:
+  `npm run db:deploy -w @cimcms/broker` (`db:migrate` while changing the schema).
+- The API writes logins (Add device, Reset password, CLI) through the same database: its
+  `BROKER_DATABASE_URL` must equal the broker's.
 - When the API changes or deletes a login it publishes to `cimcms/broker/account-changed` and
   the broker drops that login's open sessions.
 
@@ -27,19 +33,21 @@ Superseded: `docs/runbooks/mosquitto-hardening.md`, `infra/server-mosquitto/`, `
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | (required) | Same database as the API |
+| `BROKER_DATABASE_URL` | (required) | The broker database (not the app database); same value in the API's env |
+| `BROKER_MIGRATE` | true | Docker image only: `false` skips `prisma migrate deploy` in the entrypoint |
 | `BROKER_PORT` | 1883 | Plain MQTT |
 | `BROKER_TLS_PORT` | 8883 | MQTTS, only started when cert and key are set |
 | `BROKER_TLS_CERT` / `BROKER_TLS_KEY` | empty | PEM files (for example Let's Encrypt `fullchain.pem` / `privkey.pem`) |
 | `BROKER_HEALTH_PORT` | 8081 | `GET /health` |
 | `BROKER_LOG` | empty | `silent` turns logging off |
 
-Local development: `cp apps/broker/.env.example apps/broker/.env` (same `DATABASE_URL` as
-`apps/api/.env`), then `npm run dev:broker`.
+Local development: create the database once (`CREATE DATABASE cimcms_broker` on the dev Postgres),
+`cp apps/broker/.env.example apps/broker/.env` (same `BROKER_DATABASE_URL` as `apps/api/.env`),
+`npm run db:deploy -w @cimcms/broker`, then `npm run dev:broker`.
 
 ## Accounts (CLI)
 
-Run from a checkout with `DATABASE_URL` set (`npm run mqtt:account -w apps/api -- ...`) or inside
+Run from a checkout with `BROKER_DATABASE_URL` set (`npm run mqtt:account -w apps/api -- ...`) or inside
 the API container (`node dist/src/models/mqtt-account.js ...`):
 
 ```
@@ -60,7 +68,7 @@ Use `MQTT_PROVISIONING=manual` only with an external broker.
 List logins (read-only):
 
 ```
-docker compose exec postgres psql -U <postgres-user> -d <db> -c 'SELECT username, kind, "deviceId", enabled, "passwordSetAt" FROM "MqttAccount" ORDER BY kind, username'
+docker compose exec postgres psql -U <postgres-user> -d cimcms_broker -c 'SELECT username, kind, "deviceId", enabled, "passwordSetAt" FROM "MqttAccount" ORDER BY kind, username'
 ```
 
 Block a login at once without deleting it: `UPDATE "MqttAccount" SET enabled = false WHERE username = '<name>'`
@@ -93,14 +101,23 @@ container (`curl -fsS http://localhost:8081/health`); the port is not published.
 
 ## Backup and restore
 
-Nothing to back up on the broker itself: logins (`MqttAccount`) and retained messages
-(`MqttRetained`) are in the CIMCMS database, so the normal database backup (`docs/runbooks/backup-restore.md`)
-covers them. After a database restore, restart the broker so it reloads retained messages.
+Nothing to back up on the broker container itself: logins (`MqttAccount`) and retained messages
+(`MqttRetained`) are in the broker database. `infra/prod/scripts/backup-postgres.sh` dumps it next
+to the app database (`broker-<date>.dump`, database from `BROKER_DB`, default `cimcms_broker`;
+`docs/runbooks/backup-restore.md`). Restore with `TARGET_DB=cimcms_broker ./scripts/restore-postgres.sh
+<broker dump>` (broker and api stopped), then restart the broker so it reloads retained messages.
 
 ## Update
 
-Build/pull the new `cimcms-broker` image, update and start the API first (migrations), then
-`docker compose up -d broker`. Clients reconnect within seconds.
+Build/pull the new `cimcms-broker` image and `docker compose up -d broker`; its entrypoint applies
+pending broker migrations, then the broker starts. Clients reconnect within seconds.
+
+### Moving existing logins out of the app database (release with D27)
+
+Before D27 the tables lived in the app database. The api migration
+`20261124090000_move_broker_tables_out` DROPS them there, so copy the rows into the broker database
+BEFORE the new api image starts (`docs/runbooks/deploy.md`, section 4, "Upgrade to the separate broker
+database").
 
 ## Rollback to Mosquitto
 

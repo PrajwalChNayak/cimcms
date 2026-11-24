@@ -8,14 +8,15 @@ import {
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import MqttClient from "@/mqtt/mqtt.client";
+import brokerPrisma from "@models/broker-prisma.client";
 import prisma from "@models/prisma.client";
 import Argon from "@utils/argon.utils";
 import { getTestApp } from "./helpers/app";
 import { mintToken } from "./helpers/tokens";
 
 /**
- * Automatic MQTT broker accounts: the API writes device logins to the MqttAccount table (which
- * the CIMCMS broker reads on every connect) and tells the broker to drop live sessions after a
+ * Automatic MQTT broker accounts: the API writes device logins to the MqttAccount table in the
+ * broker database (which the CIMCMS broker reads on every connect) and tells the broker to drop live sessions after a
  * password reset or delete by publishing to cimcms/broker/account-changed.
  */
 const API = "/api/v1";
@@ -54,7 +55,7 @@ async function registerOk(deviceId: string): Promise<RegisterDeviceResultDto> {
 
 const audits = (action: string, deviceId: string) =>
   prisma.auditLog.findMany({ where: { action, entity: "Device", entityId: deviceId } });
-const row = (username: string) => prisma.mqttAccount.findUnique({ where: { username } });
+const row = (username: string) => brokerPrisma.mqttAccount.findUnique({ where: { username } });
 /** Usernames announced on the account-changed topic. */
 const notified = (): string[] =>
   publish.mock.calls
@@ -71,7 +72,7 @@ function restoreEnv(): void {
 
 async function cleanup(): Promise<void> {
   await prisma.device.deleteMany({ where: { deviceId: { in: [...IDS] } } });
-  await prisma.mqttAccount.deleteMany({ where: { username: { in: [...IDS] } } });
+  await brokerPrisma.mqttAccount.deleteMany({ where: { username: { in: [...IDS] } } });
   await prisma.auditLog.deleteMany({ where: { entity: "Device", entityId: { in: [...IDS] } } });
 }
 
@@ -81,6 +82,7 @@ afterAll(async () => {
   restoreEnv();
   await cleanup();
   await prisma.$disconnect();
+  await brokerPrisma.$disconnect();
 });
 
 beforeEach(async () => {
@@ -156,7 +158,7 @@ describe("POST /devices/register in broker mode (default)", () => {
   });
 
   it("reports a conflicting non-device account as provisioningError and keeps the device", async () => {
-    await prisma.mqttAccount.create({
+    await brokerPrisma.mqttAccount.create({
       data: { username: ID3, passwordHash: "x", kind: "SERVICE", passwordSetAt: new Date() },
     });
     const result = await registerOk(ID3);

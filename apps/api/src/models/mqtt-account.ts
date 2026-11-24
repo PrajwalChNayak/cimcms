@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
 import {
   deleteMqttAccount,
@@ -6,13 +5,15 @@ import {
   parseMqttAccountArgs,
   upsertMqttAccount,
 } from "@models/seed/mqttAccount";
+import brokerPrisma from "@models/broker-prisma.client";
 dotenv.config();
 
 // Usage: npm run mqtt:account -w apps/api -- --username cimcms-backend --kind service
 // Broker logins live in the MqttAccount table; the broker reads it on every connect.
 // The password comes from MQTT_ACCOUNT_PASSWORD, or is generated and printed once.
 
-const prisma = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+// Broker logins live in the broker database (BROKER_DATABASE_URL).
+const prisma = brokerPrisma;
 
 async function main(): Promise<void> {
   const cmd = parseMqttAccountArgs(process.argv.slice(2));

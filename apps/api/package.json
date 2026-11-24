@@ -62,7 +62,8 @@
     "winston": "^3.17.0",
     "xlsx": "^0.18.5",
     "yamljs": "^0.3.0",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@cimcms/broker": "*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
