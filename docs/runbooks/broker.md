@@ -124,3 +124,25 @@ database").
 On the current server see `infra/server-broker/README.md` ("Rollback"): stop the broker, start
 the Mosquitto container again in its old folder (it was not changed), and put the API's old
 MQTT settings back. Device logins created in CIMCMS after the switch do not exist in Mosquitto.
+
+## Limits and capacity (2026-11-24)
+
+Protections (env in `broker.env`, defaults in brackets):
+- `BROKER_MAX_MSGS_PER_SEC` [20] / `BROKER_MSG_BURST` [100]: per-client publish rate; a client above it is disconnected. A device sending every second uses 1/s.
+- `BROKER_MAX_PAYLOAD_BYTES` [65536]: bigger messages disconnect the client.
+- `BROKER_MAX_CONN_PER_IP` [200] / `BROKER_MAX_CONNECTIONS` [10000]: connection caps (a site behind one NAT address shares the per-IP cap).
+- Failed logins: 20 per IP per 10 min, then that IP is refused for the window.
+- Database outage: devices that logged in during the last 10 min can reconnect with the same password (login cache); new or changed logins get "server unavailable" until the database is back.
+- Retained messages are written to the database at most once per second per topic, and flushed on a clean stop.
+- `/health` reports clients, messages/s and drop counters; a stats line is logged every minute.
+
+API side: telemetry history is stored every `TELEMETRY_STORE_INTERVAL_S` [10] seconds per device or on any state change (relays, mode, simulation); the live state and the web app still update on every message.
+
+Load test (`npx tsx apps/broker/scripts/load-test.ts <devices> <seconds>`, throw-away local databases), telemetry every 1 s:
+
+| Devices | Messages/s | Lost | API behind at stop | History rows (60 s) |
+| --- | --- | --- | --- | --- |
+| 50 | 49.8 | 0 | max 1.0 s | 348 (instead of 3000) |
+| 200 | 198.2 | 0 | max 1.9 s | 1893 (instead of 12000) |
+
+With a remote database every query adds the network round trip (about 30 ms from a PC to 148.135.137.198), so run the API on the same server as the database.

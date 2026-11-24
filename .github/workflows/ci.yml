@@ -16,6 +16,7 @@ jobs:
       - run: npm ci
       - run: npm run build:contracts
       - run: npm run gp -w apps/api
+      - run: npm run db:generate:broker
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
