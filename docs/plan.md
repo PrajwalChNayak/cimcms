@@ -51,14 +51,14 @@ Read this section before every session.
 
 | ID | Decision | Why |
 | --- | --- | --- |
-| D-1 | **Database stays MongoDB** (existing, via Prisma). Telemetry goes into a MongoDB **time-series collection**. No InfluxDB, no PostgreSQL in MVP. | Existing code, repositories and error handling are built on Prisma + MongoDB. Time-series collections replace the optional InfluxDB. Owner may override (O-1) before T2.1 starts. |
+| D-1 | **Database is PostgreSQL 16** via Prisma (owner decision O-1, 2026-11-22; replaced the original MongoDB default). Schema changes ship as Prisma migrations (`prisma migrate deploy`). Telemetry is a plain indexed table with daily retention. No InfluxDB in MVP. | FRS recommends PostgreSQL; relational integrity (foreign keys, unique constraints), real migrations, transactions and advisory locks. |
 | D-2 | **Monorepo** `cimcms/` with npm workspaces: `apps/api`, `apps/web`, `packages/contracts`, `tools/device-sim`, `infra/`, `docs/`. | FRS asks for one repository with frontend, backend, infra and docs folders. Shared contracts need one place. |
 | D-3 | **One backend process** runs HTTP API + Socket.IO + MQTT client + background jobs. Run **exactly 1 instance**. Never enable pm2 cluster mode or multiple replicas. | Multiple instances would duplicate MQTT ingestion and split socket rooms. One process is enough for a few devices. |
 | D-4 | CIMCMS staff log in with the **internal `User` domain** (`POST /user/login`). The `Consumer` domain (`/auth/*`) is not changed. | Only `User` tokens carry roles and permissions. |
 | D-5 | **Access token 15 min**, kept in memory in the UI. **Refresh token 7 days** in an HttpOnly, Secure, SameSite=Strict cookie, rotated on every use, stored hashed in DB. | Fixes "page reload logs out" (UI §15) and stale 30-day permission claims (API §12). |
 | D-6 | **Same-origin deployment:** `https://<domain>/` = SPA, `/api/` = API, `/socket.io/` = WebSocket, all through Nginx. Dev uses the Vite proxy the same way. | Cookies and CORS stay simple and safe. |
 | D-7 | **MQTT wire format is snake_case** (as in the FRS). REST, DB and UI use camelCase. `packages/contracts` holds both schemas and the mapping functions. | Firmware-friendly wire format, JS-friendly app format. |
-| D-8 | **Device references:** MQTT payloads, socket rooms, and operational collections use the physical `deviceId` string (e.g. `LED-01`). REST path parameter `:id` is the MongoDB ObjectId (existing convention). Every device DTO has both `id` and `deviceId`. | Ingest needs no lookup; REST stays consistent with existing routes. |
+| D-8 | **Device references:** MQTT payloads, socket rooms, and operational collections use the physical `deviceId` string (e.g. `LED-01`). REST path parameter `:id` is the database UUID (existing convention). Every device DTO has both `id` and `deviceId`. | Ingest needs no lookup; REST stays consistent with existing routes. |
 | D-9 | **Web commands are absolute**, never toggle: `SET_RELAY {relay, state: ON/OFF}`, `SET_ALL_RELAYS {state}`. Bulk = one command, not 16. | Two users clicking at once cannot invert each other. |
 | D-10 | **Command timing:** command TTL 15 s (`expires_at_utc = issued + 15 s`). Backend marks `TIMEOUT` at expiry + 5 s. Device connects with **clean session = true** (no queued commands after reconnect). Commands to a device that is not `ONLINE` are refused with 409. | The device can never run a command after the UI has shown it as failed. |
 | D-11 | **MVP mode policy for relay commands:** allowed when device mode is `MANUAL`. In `MAINTENANCE` only with permission `DEVICE_DIAGNOSTICS`. In `AUTO` or `EXPERIMENT` refused with `MODE_POLICY_BLOCKED`. | Override policy is not confirmed yet (O-3, O-4). Safe default. |
@@ -66,7 +66,7 @@ Read this section before every session.
 | D-13 | **Humidifier is monitor-only:** backend subscribes to `cimcms/humidifier/+/status` (plain-text `online`/`offline` accepted). Backend never publishes to humidifier topics. | FRS: do not disrupt the Humidifier. |
 | D-14 | **Mosquitto stays the existing host service.** Not put in Docker Compose. Changes only by a human using the runbook (T4.3). Add an 8883 TLS listener. Keep 1883 until the Humidifier is migrated. | Do not disrupt the existing broker. |
 | D-15 | **Zod validation at every edge:** REST body/query/params, every inbound MQTT message, every socket message. | API has no validation layer today (API §12). |
-| D-16 | **Tests:** Vitest in all packages, supertest for API routes, in-process `aedes` broker + `mongodb-memory-server` replica set for integration tests, Playwright for end-to-end. | Neither app has tests today. |
+| D-16 | **Tests:** Vitest in all packages, supertest for API routes, in-process `aedes` broker + embedded PostgreSQL (`embedded-postgres`) for integration tests, Playwright for end-to-end. | Neither app has tests today. |
 | D-17 | **Time:** store UTC everywhere. Display `Asia/Kolkata` (UTC+05:30, no DST) in the UI only. | FRS §5. |
 
 ---
@@ -493,7 +493,9 @@ After a successful `subscribe:device`, the server immediately emits `device:stat
 
 ---
 
-## 6. Data model (Prisma, MongoDB)
+## 6. Data model (Prisma, PostgreSQL)
+
+> **Updated 2026-11-22 (O-1):** the database is PostgreSQL. The source of truth is `apps/api/src/models/tables/schema.prisma` plus its `migrations/` folder. Ids are UUIDs, command acks are a `CommandAck` table, telemetry is a `Telemetry` table. The MongoDB notes below are historical.
 
 Rules:
 - Add models to the existing `src/models/tables/schema.prisma`. Follow its existing naming and `@@map` style.
@@ -1329,7 +1331,7 @@ Per FRS §15 Phase 5: verify relay polarity and wiring, test each relay without 
 
 | ID | Question | Default in this plan | Blocks |
 | --- | --- | --- | --- |
-| O-1 | MongoDB (existing) or PostgreSQL (FRS recommendation)? | MongoDB (D-1) | T2.1 |
+| O-1 | MongoDB (existing) or PostgreSQL (FRS recommendation)? | **Answered 2026-11-22: PostgreSQL** (D-1) | done |
 | O-2 | One monorepo, or keep separate API and UI repos? Repo URLs? | Monorepo (D-2) | T0.1 |
 | O-3 | Manual override while in AUTO/EXPERIMENT? | Not allowed; relay commands blocked (D-11) | Phase 5 |
 | O-4 | Remote commands in MAINTENANCE/EXPERIMENT; technician rights | MAINTENANCE needs DEVICE_DIAGNOSTICS; EXPERIMENT blocked | T2.8 (default ok), T5.2 |
@@ -1342,7 +1344,7 @@ Per FRS §15 Phase 5: verify relay polarity and wiring, test each relay without 
 | O-11 | Heartbeat 30 s, stale 75 s, command TTL 15 s | As listed | — |
 | O-12 | Humidifier migration to TLS and own account | Keep 1883 + `mqttuser` until reflash | T4.3 step 12 |
 | O-13 | Domain, hosting provider, OS, off-server backup destination | Unknown — required | Phase 4 |
-| O-14 | InfluxDB needed? | No (Mongo time-series) | — |
+| O-14 | InfluxDB needed? | No (PostgreSQL telemetry table) | — |
 | O-15 | Experiment pause semantics; state of relays not in an experiment | Unknown — required | T5.4 |
 | O-16 | Topic segment names for Steam and Environment modules | `steam`, `environment` placeholders, no subscriptions | Future modules |
 

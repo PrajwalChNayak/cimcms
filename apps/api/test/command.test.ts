@@ -50,7 +50,8 @@ function submit(
   return req.send(body as object);
 }
 
-const command = (commandId: string) => prisma.command.findUnique({ where: { commandId } });
+const command = (commandId: string) =>
+  prisma.command.findUnique({ where: { commandId }, include: { acks: { orderBy: { id: "asc" } } } });
 const result = (res: { body: { result: CommandDto } }): CommandDto => res.body.result;
 
 async function onlineDevice(simOpts: Parameters<Rig["sim"]>[0] = {}) {
@@ -205,7 +206,7 @@ describe("POST /devices/:id/commands", () => {
       (await submit("operator", { action: "REQUEST_STATUS" }, { key: "not-a-uuid" })).body.errorCode,
     ).toBe("VALIDATION_FAILED");
 
-    const unknown = await submit("operator", { action: "REQUEST_STATUS" }, { id: "a".repeat(24) });
+    const unknown = await submit("operator", { action: "REQUEST_STATUS" }, { id: "00000000-0000-4000-8000-000000000000" });
     expect(unknown.status).toBe(404);
     expect(unknown.body.errorCode).toBe("DEVICE_NOT_FOUND");
 

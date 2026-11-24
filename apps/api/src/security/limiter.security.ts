@@ -26,6 +26,16 @@ export const generalLimiter = rateLimit({
   limit: 1000,
 });
 
+/**
+ * 50 attempts / 15 minutes per IP, across all emails. Stops one IP from guessing
+ * passwords for many accounts (loginLimiter alone keys on IP + email).
+ */
+export const loginIpLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 50,
+});
+
 /** 10 attempts / 15 minutes per IP + lower-cased email, for login endpoints. */
 export const loginLimiter = rateLimit({
   ...baseOptions,

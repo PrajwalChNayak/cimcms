@@ -4,13 +4,21 @@ import {
   deviceEventDtoSchema,
   deviceListItemDtoSchema,
   deviceStateDtoSchema,
+  mqttAccountDtoSchema,
+  mqttCredentialsDtoSchema,
+  registerDeviceResultDtoSchema,
   telemetryPointDtoSchema,
   type CommandDto,
   type DeviceEventDto,
   type DeviceListItemDto,
   type DeviceStateDto,
   type DeviceType,
+  type MqttAccountDto,
+  type MqttCredentialsDto,
+  type RegisterDeviceBody,
+  type RegisterDeviceResultDto,
   type TelemetryPointDto,
+  type UpdateDeviceBody,
 } from "@cimcms/contracts";
 import { baseApi } from "@api/baseApi";
 import type { PaginatedResponse } from "@appTypes/api.types";
@@ -45,6 +53,13 @@ const telemetrySchema = apiResponseSchema(z.array(telemetryPointDtoSchema));
 const eventsSchema = apiResponseSchema(paginatedSchema(deviceEventDtoSchema));
 const commandsSchema = apiResponseSchema(paginatedSchema(commandDtoSchema));
 const relayChangesSchema = apiResponseSchema(paginatedSchema(relayChangeDtoSchema));
+const registerResultSchema = apiResponseSchema(registerDeviceResultDtoSchema);
+const mqttAccountSchema = apiResponseSchema(mqttAccountDtoSchema);
+const mqttCredentialsSchema = apiResponseSchema(mqttCredentialsDtoSchema);
+// Update returns the raw device record; only the ids are used.
+const savedDeviceSchema = apiResponseSchema(
+  z.object({ id: z.string(), deviceId: z.string() }).passthrough(),
+);
 
 // ── Args ──────────────────────────────────────────────────────
 interface PageArgs {
@@ -56,7 +71,7 @@ interface RangeArgs {
   from?: string;
   to?: string;
 }
-/** `id` = MongoDB ObjectId (REST path, D-8); `deviceId` = physical id (sockets, e.g. LED-01). */
+/** `id` = database UUID (REST path, D-8); `deviceId` = physical id (sockets, e.g. LED-01). */
 export interface DeviceRef {
   id: string;
   deviceId: string;
@@ -130,7 +145,7 @@ export const deviceApi = baseApi.injectEndpoints({
     }),
 
     getDeviceEvents: builder.query<DevicePage<DeviceEventDto>, DeviceEventsArgs>({
-      // `deviceId` is only for the live subscription; the path uses the ObjectId.
+      // `deviceId` is only for the live subscription; the path uses the database id.
       query: ({ id, deviceId: _deviceId, ...params }) => ({
         url: `/devices/${id}/events`,
         params,
@@ -190,6 +205,44 @@ export const deviceApi = baseApi.injectEndpoints({
           .result,
       providesTags: (_r, _e, { id }) => [{ type: "RelayChanges", id }],
     }),
+
+    /**
+     * Adds a device (DEVICE_MANAGE). In `broker` mode the server also creates the broker
+     * account and returns its password ONCE in `credentials` (never stored, never cached).
+     */
+    registerDevice: builder.mutation<RegisterDeviceResultDto, RegisterDeviceBody>({
+      query: (body) => ({ url: "/devices/register", method: "POST", body }),
+      transformResponse: (raw: unknown) =>
+        parseResponse(registerResultSchema, raw, "POST /devices/register").result,
+      invalidatesTags: [{ type: "Device", id: "LIST" }],
+    }),
+
+    /** Broker account state of a device, without any secret (DEVICE_MANAGE). `id` = database UUID. */
+    getMqttAccount: builder.query<MqttAccountDto, string>({
+      query: (id) => `/devices/${id}/mqtt-account`,
+      transformResponse: (raw: unknown) =>
+        parseResponse(mqttAccountSchema, raw, "GET /devices/:id/mqtt-account").result,
+      providesTags: (_r, _e, id) => [{ type: "DeviceMqttAccount", id }],
+    }),
+
+    /**
+     * New broker password, shown once (creates the account when missing). DEVICE_MANAGE.
+     * 409 MQTT_PROVISIONING_DISABLED in manual mode, 502 MQTT_PROVISIONING_FAILED on broker errors.
+     */
+    resetMqttPassword: builder.mutation<MqttCredentialsDto, string>({
+      query: (id) => ({ url: `/devices/${id}/mqtt-account/password`, method: "POST" }),
+      transformResponse: (raw: unknown) =>
+        parseResponse(mqttCredentialsSchema, raw, "POST /devices/:id/mqtt-account/password").result,
+      invalidatesTags: (_r, _e, id) => [{ type: "DeviceMqttAccount", id }],
+    }),
+
+    /** Changes the name and location of a device (DEVICE_MANAGE). */
+    updateDevice: builder.mutation<{ id: string; deviceId: string }, { id: string; body: UpdateDeviceBody }>({
+      query: ({ id, body }) => ({ url: `/devices/${id}`, method: "PUT", body }),
+      transformResponse: (raw: unknown) =>
+        parseResponse(savedDeviceSchema, raw, "PUT /devices/:id").result,
+      invalidatesTags: [{ type: "Device", id: "LIST" }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -201,4 +254,8 @@ export const {
   useGetDeviceEventsQuery,
   useGetDeviceCommandsQuery,
   useGetRelayChangesQuery,
+  useRegisterDeviceMutation,
+  useUpdateDeviceMutation,
+  useGetMqttAccountQuery,
+  useResetMqttPasswordMutation,
 } = deviceApi;

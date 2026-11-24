@@ -1,5 +1,7 @@
 # Runbook: Mosquitto hardening (HUMAN-ONLY)
 
+> **Superseded (2026-11-24, PROGRESS D26).** CIMCMS now runs its own MQTT broker (`apps/broker`); logins live in the database table `MqttAccount`. Use [broker.md](broker.md) for operations and `infra/server-broker/README.md` for the switch-over from Mosquitto. This runbook is kept only for rollback to Mosquitto and as history.
+
 Task: T4.3. Decisions: D-13 (Humidifier is monitor-only), D-14 (Mosquitto stays the existing host service, 8883 TLS listener added, 1883 kept until the Humidifier is migrated). Needs senior review before use.
 
 **Who runs this:** a human operator with owner approval. No automated agent may run any step. Do not connect to the production server from any AI tool.
@@ -13,6 +15,8 @@ Task: T4.3. Decisions: D-13 (Humidifier is monitor-only), D-14 (Mosquitto stays 
 | `<ts>` | Timestamp used in backup names, for example `20250101-2200` |
 | `<backend-password>`, `<device-password>` | Generated in a password manager. Never paste them anywhere else |
 | `<conf-dir>`, `<passwd-file>`, `<acl-file>` | Real paths found in step 2 |
+| `<dynsec-admin-password>` | Dynamic Security admin password (step 13), generated in a password manager. Stored only there, in `api.env` and in the encrypted secrets store |
+| `<plugin-path>`, `<dynsec-file>` | Dynamic Security plugin library and its state file, found or chosen in step 13.3 |
 
 > **WARNING: the Humidifier uses the shared account `mqttuser`.** If the broker has no ACL today, enabling an ACL denies every topic that is not listed. The `mqttuser` block in step 6 is mandatory. If you enable the ACL without it, the Humidifier stops working. Do not skip it, do not narrow it, and do not remove it until step 12.
 
@@ -332,6 +336,139 @@ Do this only when the owner confirms the Humidifier firmware has been reflashed 
 
 Rollback for this step: restore the previous config, ACL and password file from a backup made at the start of this step, restart Mosquitto, and re-add the 1883 firewall rule.
 
+## 13. Automatic device accounts (Dynamic Security plugin)
+
+**HUMAN-ONLY, optional.** Do this only when the owner wants the web app to create device broker accounts automatically, and only after steps 1 to 11 are done and the 8883 TLS listener works. Until then keep `MQTT_PROVISIONING=manual` in `api.env` (the default). In that mode the broker needs no change: an operator creates each device account as in step 5, and the web app shows those manual steps for each new device.
+
+**What it does.** Mosquitto's Dynamic Security plugin keeps its own list of users and roles in a JSON file, and an admin account can change them by sending MQTT messages. With `MQTT_PROVISIONING=dynsec` the CIMCMS API uses that admin account whenever an admin adds a device in the web app: it creates one broker user per device (user name = client ID = device ID) with its own role `cimcms-device-<deviceId>`. That role only allows publishing `cimcms/<type>/<deviceId>/status`, `telemetry`, `ack` and `event`, and subscribing to and receiving `cimcms/<type>/<deviceId>/command` and `config`. The random password is shown once in the web app; only the broker keeps its hash. Reset password and device deletion in the web app change the broker account too.
+
+The plugin only answers for users it knows. Every other user (`mqttuser`, `cimcms-backend`, `LED-01` and other devices from step 5) is still checked against `password_file` and `acl_file`, so **both files stay in place**. This was verified on a dev broker (eclipse-mosquitto 2.1.2); verify it again on your version in step 13.2.
+
+### 13.1 Back up first
+
+Make a fresh backup exactly as in step 3, with a new `<ts>` (config, password file, ACL, data directory), and copy it off-server. Keep the step 3 rollback commands open in a second terminal.
+
+### 13.2 Test on a copy first
+
+As in step 4: start a local container of the **same Mosquitto version** as the production broker, with copies of the current production config, password file and ACL. The plugin needs Mosquitto 2.0 or later; in the official `eclipse-mosquitto` image it is at `/usr/lib/mosquitto_dynamic_security.so`. Apply steps 13.3 to 13.6 to the copy and run the checks of step 13.7 against it, including that `mqttuser`, `cimcms-backend` and `LED-01` still connect and keep their access. Only continue when all checks pass.
+
+### 13.3 Find the plugin and choose the state file
+
+Run on the broker server (read-only):
+
+```bash
+mosquitto -h 2>&1 | head -n 1                               # must be 2.0 or later
+find / -name 'mosquitto_dynamic_security.so' 2>/dev/null    # the result is <plugin-path>
+```
+
+On Debian and Ubuntu packages it is usually `/usr/lib/x86_64-linux-gnu/mosquitto_dynamic_security.so`. If nothing is found, the installed package does not include the plugin: stop here and keep `MQTT_PROVISIONING=manual`.
+
+Choose `<dynsec-file>` in the broker's data directory, for example `/var/lib/mosquitto/dynamic-security.json`. The broker rewrites this file every time an account changes, so the `mosquitto` user must own it.
+
+### 13.4 Initialise the plugin with an admin account
+
+1. Generate a strong admin password in the password manager (`<dynsec-admin-password>`).
+2. Check that `<dynsec-file>` does not exist yet (`sudo ls -la <dynsec-file>` must say "No such file"). Never delete or re-initialise an existing file: it holds every automatic device account.
+3. Create the file. Leave the password off the command line; `mosquitto_ctrl` asks for it, which keeps it out of the shell history:
+   ```bash
+   sudo mosquitto_ctrl dynsec init <dynsec-file> cimcms-admin
+   sudo chown mosquitto:mosquitto <dynsec-file>
+   sudo chmod 600 <dynsec-file>
+   ```
+4. Store the admin password in the encrypted secrets store (`docs/runbooks/backup-restore.md` section 5). It goes into `api.env` in step 13.7 and nowhere else.
+
+The admin account can create, change and delete any broker account in the plugin, and the role that `init` gives it can also read broker topics (after step 13.7 item 3, look at it with `dynsec getClient cimcms-admin` and then `dynsec getRole <role-name>`). Treat it like a root password: never give it to a device, the Humidifier, or anyone's everyday MQTT client.
+
+Rollback for this step: the file is not used until step 13.5. To undo, delete only the file you just created in this step.
+
+### 13.5 Add the plugin to the broker config
+
+Edit the same config file as in step 7 (for example `/etc/mosquitto/conf.d/cimcms.conf`). Add the two plugin lines and **keep `password_file` and `acl_file` exactly as they are**:
+
+```
+# Dynamic Security plugin: automatic device accounts created by the CIMCMS API.
+# Users it does not know (mqttuser, cimcms-backend, file-based devices) are still
+# checked against password_file and acl_file below. Do not remove those lines.
+plugin <plugin-path>
+plugin_opt_config_file <dynsec-file>
+
+password_file <passwd-file>
+acl_file <acl-file>
+```
+
+- Without `per_listener_settings` (the normal case, see step 7) the plugin applies to all listeners.
+- If `per_listener_settings true` is already set, plugins are configured per listener. Check the documentation of your installed version and test it on the copy (step 13.2) before touching production.
+- Do not create a file-based account (step 5) for a device that already has an automatic account, or the other way round. The plugin answers first for users it knows, so the file entry would be ignored.
+
+### 13.6 Keep the admin account off plain-text connections
+
+Device passwords travel inside the admin messages from the API to the broker. The admin account must only be used over one of these:
+
+- the 8883 TLS listener: `MQTT_URL=mqtts://<broker-host>:8883` in `api.env` (the API's admin connection uses `MQTT_URL` and `MQTT_CA_FILE`), or
+- a listener that is reachable only from the broker host or the private network, for example `listener 1884 127.0.0.1` (or the server's private IP), when the API runs on the same host or private network. Do not open such a port in the firewall.
+
+Never use `cimcms-admin` over the public plain-text 1883 listener. Mosquitto cannot limit one user to one listener unless `per_listener_settings` is on, so this is enforced by how the API and the operators are configured; the 1883 firewall restriction from step 9 reduces the exposure further. Running `mosquitto_ctrl` on the broker host itself against `localhost` is fine, because that traffic does not leave the machine.
+
+### 13.7 Apply, configure the API and verify
+
+1. Apply:
+   ```bash
+   sudo systemctl restart mosquitto        # the plugin is loaded only at start
+   systemctl status mosquitto --no-pager
+   sudo journalctl -u mosquitto -n 50 --no-pager   # no errors about the plugin or <dynsec-file>
+   ```
+2. **Existing accounts still work.** Re-run step 10, checks a (Humidifier on 1883 with `mqttuser`, and the second person confirms the Humidifier itself), b (`cimcms-backend`) and c (`LED-01`). All must pass exactly as before. If any fails, roll back (step 13.9).
+3. **The admin account works over TLS:**
+   ```bash
+   mosquitto_ctrl -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -u cimcms-admin -P '<dynsec-admin-password>' dynsec listClients
+   ```
+   Expected: only `cimcms-admin` (device accounts appear here once the API creates them).
+4. **Configure the API.** In `/opt/cimcms/secrets/api.env` set:
+   ```
+   MQTT_PROVISIONING=dynsec
+   MQTT_ADMIN_USERNAME=cimcms-admin
+   MQTT_ADMIN_PASSWORD=<dynsec-admin-password>
+   MQTT_DEVICE_URL=mqtts://mqtt.<domain>:8883
+   ```
+   Check that `MQTT_URL` is the TLS listener or a private listener (step 13.6). Then recreate the api container so it re-reads the env file (a plain `restart` does not):
+   ```bash
+   cd <repo>/infra/prod && docker compose up -d api
+   docker compose logs --tail 50 api
+   ```
+   The release must contain the migration `20261123115752_device_mqtt_account`; the api container applies it at start.
+5. **Add a test device.** In the web app go to Devices → Add device, for example ID `TEST-DYNSEC-01`, type LED controller. The web app shows the user name, client ID, password (once) and the topics. Use the password only for this test.
+6. **Connect with its credentials.** In terminal 1 subscribe as the backend:
+   ```bash
+   mosquitto_sub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -u cimcms-backend -P '<backend-password>' -t 'cimcms/led/+/status' -v
+   ```
+   In terminal 2 publish as the test device. The client ID must equal the device ID, so pass `-i`:
+   ```bash
+   mosquitto_pub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -i TEST-DYNSEC-01 -u TEST-DYNSEC-01 -P '<test-device-password>' -t 'cimcms/led/TEST-DYNSEC-01/status' -m '{"test":true}'   # must appear in terminal 1
+   mosquitto_pub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -i TEST-DYNSEC-01 -u TEST-DYNSEC-01 -P '<test-device-password>' -t 'cimcms/led/NOT-A-DEVICE/status' -m '{"test":true}'     # must NOT appear in terminal 1
+   mosquitto_sub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -i TEST-DYNSEC-01 -u TEST-DYNSEC-01 -P 'wrong-password' -t 'cimcms/led/TEST-DYNSEC-01/command' -W 5   # must fail: not authorised
+   ```
+   Do not publish test payloads to the topics of a real device.
+7. **Delete the test device** in the web app. Then run the `listClients` command from item 3 again: `TEST-DYNSEC-01` must be gone, and connecting with its password must now fail.
+8. Watch the broker log for 10 to 15 minutes, as in step 10.3, for unexpected `not authorised` messages or ACL denials from the Humidifier, `cimcms-backend` or the LED devices.
+
+### 13.8 Back up the Dynamic Security state
+
+`<dynsec-file>` holds the admin account and every automatic device account (password hashes). It changes each time an admin adds a device, resets a password or deletes a device, so it must be backed up **together with the broker config and password file**, encrypted and off-server, and the backup must be refreshed regularly (`docs/runbooks/backup-restore.md`). Step 3 copies `/var/lib/mosquitto`; if `<dynsec-file>` lives elsewhere, copy it as well. The CIMCMS database does not contain the device passwords, so it cannot replace this backup.
+
+If the file is ever restored from an older backup, devices added after that backup cannot connect. Use Reset password on each of those devices in the web app (it re-creates a missing account) and load the new password onto the device.
+
+### 13.9 Rollback
+
+1. Set `MQTT_PROVISIONING=manual` in `/opt/cimcms/secrets/api.env` and run `cd <repo>/infra/prod && docker compose up -d api`.
+2. Remove the two plugin lines (`plugin ...` and `plugin_opt_config_file ...`) from the broker config, then:
+   ```bash
+   sudo systemctl restart mosquitto
+   systemctl status mosquitto --no-pager
+   ```
+3. Re-run step 10, checks a, b and c.
+
+Leave `<dynsec-file>` in place; do not delete it. Re-adding the two lines later brings the automatic accounts back. While the plugin is off, devices that only have an automatic account cannot connect: create file-based accounts for them (step 5) if they must keep working. If the config itself is broken, restore the backup from step 13.1 as in step 3.
+
 ---
 
 ## Final checklist
@@ -346,4 +483,5 @@ Rollback for this step: restore the previous config, ACL and password file from 
 - [ ] Renewal hook tested, reload vs restart verified (step 8)
 - [ ] Firewall done, risk recorded if 1883 stays open (step 9)
 - [ ] All verifications passed (step 10), or rollback done (step 11)
+- [ ] Only if automatic device accounts are wanted: Dynamic Security plugin tested on a copy, `password_file`/`acl_file` kept, Humidifier re-verified, admin used only over TLS or a private listener, test device added and deleted, `<dynsec-file>` included in the backups (step 13). Otherwise `MQTT_PROVISIONING=manual` stays set
 - [ ] Owner reviewed this runbook and the result

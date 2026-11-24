@@ -1,0 +1,10 @@
+#pragma once
+
+#ifndef CIMCMS_VERSION_H
+#define CIMCMS_VERSION_H
+
+#define CIMCMS_FIRMWARE_NAME "CIMCMS LED Controller"
+#define CIMCMS_FIRMWARE_VERSION "0.5.1-dev1"
+#define CIMCMS_HARDWARE_REVISION "V1"
+
+#endif

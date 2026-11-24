@@ -1,0 +1,13 @@
+# ACL for users in the password file (mosquitto.conf: password_file / acl_file).
+# Accounts created by the CIMCMS API (devices, cimcms-backend, cimcms-admin) are NOT here:
+# the Dynamic Security plugin handles them with their own, narrow permissions.
+
+# Shared account used by the Humidifier and manual tests: full access, exactly as before.
+# Later: give the Humidifier its own account, narrow this, and change mqttuser's password.
+user mqttuser
+topic readwrite #
+
+# If your password file has other users, give each one a block like this, or they will
+# lose access when this file is enabled:
+# user <name>
+# topic readwrite #

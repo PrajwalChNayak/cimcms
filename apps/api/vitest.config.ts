@@ -25,11 +25,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
-    globalSetup: ["test/setup/mongo.ts"],
+    globalSetup: ["test/setup/postgres.ts"],
     setupFiles: ["test/setup/env.ts"],
     testTimeout: 30_000,
     hookTimeout: 120_000,
-    // Tests share one in-memory database; run files one after another.
+    // Tests share one database; run files one after another.
     fileParallelism: false,
   },
 });

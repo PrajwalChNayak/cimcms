@@ -1,6 +1,6 @@
 import {
   createScheduleBodySchema,
-  objectIdParamSchema,
+  idParamSchema,
   scheduleListQuerySchema,
   updateScheduleBodySchema,
 } from "@cimcms/contracts";
@@ -14,7 +14,7 @@ export default (router: Router): void => {
   const read = [authenticateToken, requirePermission("SCHEDULE_READ")] as const;
   const write = [authenticateToken, requirePermission("SCHEDULE_WRITE")] as const;
   const publish = [authenticateToken, requirePermission("SCHEDULE_PUBLISH")] as const;
-  const params = validate({ params: objectIdParamSchema });
+  const params = validate({ params: idParamSchema });
 
   router.get("/schedules", ...read, validate({ query: scheduleListQuerySchema }), ScheduleController.list);
   router.post("/schedules", ...write, validate({ body: createScheduleBodySchema }), ScheduleController.create);
@@ -22,7 +22,7 @@ export default (router: Router): void => {
   router.put(
     "/schedules/:id",
     ...write,
-    validate({ params: objectIdParamSchema, body: updateScheduleBodySchema }),
+    validate({ params: idParamSchema, body: updateScheduleBodySchema }),
     ScheduleController.update,
   );
   router.get("/schedules/:id/versions", ...read, params, ScheduleController.versions);

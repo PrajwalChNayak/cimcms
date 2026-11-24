@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 
 /** Permission sets of the plan section 7 matrix (CIMCMS permissions only). */
@@ -22,7 +22,7 @@ export const ROLE_PERMISSIONS = {
 export type TestRole = keyof typeof ROLE_PERMISSIONS;
 
 export interface MintedToken {
-  /** 24-hex ObjectId string, the `userId` claim. */
+  /** UUID string, the `userId` claim. */
   userId: string;
   email: string;
   token: string;
@@ -37,7 +37,7 @@ export function mintToken(
   role: TestRole,
   opts: { permissions?: string[]; expiresIn?: number | string } = {},
 ): MintedToken {
-  const userId = randomBytes(12).toString("hex");
+  const userId = randomUUID();
   const email = `${role.toLowerCase()}-${userId}@test.local`;
   const token = jwt.sign(
     {

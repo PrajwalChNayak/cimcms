@@ -23,7 +23,7 @@ const BackendCard = () => {
             MQTT broker: <Up ok={data.mqtt === "up"} />
           </li>
           <li>
-            Database: <Up ok={data.mongo === "up"} />
+            Database: <Up ok={data.database === "up"} />
           </li>
         </ul>
       )}

@@ -5,7 +5,6 @@ import { startJobs, stopJobs } from "@/jobs";
 import MqttClient from "@/mqtt/mqtt.client";
 import { startMqtt } from "@/mqtt";
 import { attachRealtime, closeRealtime } from "@/realtime";
-import { initTimeseries } from "@models/init/timeseries";
 import prisma from "@models/prisma.client";
 import logger from "@utils/logger.utils";
 
@@ -36,14 +35,14 @@ async function shutdown(signal: string): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
-  // Must run before anything writes telemetry. Idempotent (safe on every boot).
-  await initTimeseries();
-
+  // Schema changes are applied by `prisma migrate deploy` before the process starts
+  // (docker entrypoint / deploy runbook), never at runtime. Connect now so the first
+  // request (and the first readiness probe) does not pay the connection start-up.
+  await prisma.$connect();
   attachRealtime(server);
 
-  // MQTT starts AFTER initTimeseries() so the first inbound telemetry message never
-  // creates a plain collection. Not awaited: the API must serve requests while the
-  // broker is down (commands answer 503 until the client connects).
+  // Not awaited: the API must serve requests while the broker is down
+  // (commands answer 503 until the client connects).
   startMqtt().catch((err: unknown) => {
     logger.error("MQTT start failed", { error: String(err) });
   });

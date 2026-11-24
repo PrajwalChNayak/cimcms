@@ -7,7 +7,7 @@ built by extending the existing Cultivo IoT API and React web app.
 
 | Path | What it is |
 | --- | --- |
-| `apps/api` | Existing Cultivo IoT API (Express + Prisma + MongoDB), imported with history |
+| `apps/api` | Existing Cultivo IoT API (Express + Prisma + PostgreSQL), imported with history |
 | `apps/web` | Existing React web app (Vite + Redux Toolkit), imported with history |
 | `packages/contracts` | Shared Zod schemas, constants and topic helpers (planned) |
 | `tools/device-sim` | LED controller MQTT simulator (planned) |

@@ -6,7 +6,7 @@ import { z } from "zod";
 const statusSchema = apiResponseSchema(
   z.object({
     status: z.enum(["ok", "unavailable"]),
-    mongo: z.enum(["up", "down"]),
+    database: z.enum(["up", "down"]),
     mqtt: z.enum(["up", "down"]),
   }),
 );

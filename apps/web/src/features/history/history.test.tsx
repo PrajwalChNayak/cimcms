@@ -32,7 +32,7 @@ vi.mock("socket.io-client", async () => {
 
 const T0 = "2026-11-21T10:00:00.000Z";
 const led: DeviceListItemDto = {
-  id: "665f00000000000000000001",
+  id: "665f0000-0000-4000-8000-000000000001",
   deviceId: "LED-01",
   name: "LED Controller 1",
   type: "LED_CONTROLLER",

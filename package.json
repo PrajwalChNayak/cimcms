@@ -5,13 +5,14 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "build:contracts": "npm run build -w @cimcms/contracts",
-    "build": "npm run build:contracts && npm run build -w apps/api -w apps/web",
+    "build": "npm run build:contracts && npm run build -w apps/api -w apps/web -w @cimcms/broker",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run build:contracts && npm run typecheck --workspaces --if-present",
     "test": "npm run build:contracts && npm run test --workspaces --if-present",
     "dev:infra": "docker compose -f infra/dev/docker-compose.yml up -d",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
+    "dev:broker": "npm run dev -w @cimcms/broker",
     "sim": "npm run start -w @cimcms/device-sim --"
   }
 }

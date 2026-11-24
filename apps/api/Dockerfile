@@ -35,6 +35,10 @@ COPY --from=builder --chown=node:node /usr/src/app/apps/api/dist ./dist
 COPY --from=builder --chown=node:node /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /usr/src/app/apps/api/package.json ./package.json
 COPY --from=builder --chown=node:node /usr/src/app/apps/api/openapi.yaml ./openapi.yaml
+# Prisma schema + migrations: applied by the entrypoint (prisma migrate deploy) before start.
+COPY --from=builder --chown=node:node /usr/src/app/apps/api/src/models/tables ./prisma
+COPY --chown=node:node apps/api/docker-entrypoint.sh /usr/src/app/docker-entrypoint.sh
+RUN chmod 0755 /usr/src/app/docker-entrypoint.sh
 
 # pm2 writes logs and state under $HOME/.pm2
 ENV PM2_HOME=/tmp/.pm2
@@ -42,4 +46,5 @@ USER node
 EXPOSE 3814
 
 # Fork mode, exactly ONE instance (plan D-3). Never add -i / cluster mode.
+ENTRYPOINT ["/usr/src/app/docker-entrypoint.sh"]
 CMD ["pm2-runtime", "dist/app.js"]

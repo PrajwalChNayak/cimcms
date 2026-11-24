@@ -20,8 +20,8 @@ import { getDriver, supportsAction } from "@/drivers/driver.registry";
 import MqttClient from "@/mqtt/mqtt.client";
 import { RealtimeEmitter } from "@/realtime/realtime.emitter";
 import prisma from "@models/prisma.client";
-import { Prisma, type Command } from "@prisma/client";
-import CommandRepository from "@repositories/command.repository";
+import { Prisma, type Command as CommandRow } from "@prisma/client";
+import CommandRepository, { COMMAND_WITH_ACKS, type CommandWithAcks } from "@repositories/command.repository";
 import AuditService from "@services/audit.service";
 import DeviceStateService from "@services/devicestate.service";
 import ReadinessService from "@services/readiness.service";
@@ -96,7 +96,7 @@ export default class CommandService {
 
   // ---------------------------------------------------------------- mapping
 
-  static toDto(row: Command): CommandDto {
+  static toDto(row: CommandWithAcks): CommandDto {
     return {
       commandId: row.commandId,
       deviceId: row.deviceId,
@@ -126,7 +126,7 @@ export default class CommandService {
 
   /** Re-reads the command and pushes `command:updated`. Returns the fresh DTO. */
   private static async publishUpdate(commandId: string): Promise<CommandDto> {
-    const row = await prisma.command.findUnique({ where: { commandId } });
+    const row = await prisma.command.findUnique({ where: { commandId }, include: COMMAND_WITH_ACKS });
     if (!row) throw err(404, "COMMAND_NOT_FOUND", "Command not found");
     const dto = CommandService.toDto(row);
     RealtimeEmitter.commandUpdated(dto);
@@ -138,11 +138,21 @@ export default class CommandService {
   private static async findByKey(
     key: string,
     subject: CommandSubject,
+    request?: { deviceId: string; action: string; params: Record<string, unknown> },
   ): Promise<SubmitResult | null> {
-    const found = await prisma.command.findUnique({ where: { idempotencyKey: key } });
+    const found = await prisma.command.findUnique({ where: { idempotencyKey: key }, include: COMMAND_WITH_ACKS });
     if (!found) return null;
     if (found.issuedById !== subject.userId) {
       throw err(409, "IDEMPOTENCY_CONFLICT", "Idempotency-Key was already used by another user");
+    }
+    // A key replays only the same request; a different device/action/body is a client bug.
+    if (
+      request &&
+      (found.deviceId !== request.deviceId ||
+        found.action !== request.action ||
+        JSON.stringify(found.params ?? {}) !== JSON.stringify(request.params))
+    ) {
+      throw err(409, "IDEMPOTENCY_CONFLICT", "Idempotency-Key was already used for a different request");
     }
     return { command: CommandService.toDto(found), created: false };
   }
@@ -160,17 +170,21 @@ export default class CommandService {
     meta: SubmitMeta = {},
     opts: SubmitOptions = {},
   ): Promise<SubmitResult> {
-    // 1. Idempotency
+    // 1. Idempotency (a replay must match the original device, action and body)
+    const device = await prisma.device.findUnique({ where: { id: deviceObjectId } });
+    const { action, ...params } = body;
     if (idempotencyKey) {
-      const existing = await CommandService.findByKey(idempotencyKey, subject);
+      const existing = await CommandService.findByKey(
+        idempotencyKey,
+        subject,
+        device ? { deviceId: device.deviceId, action, params } : undefined,
+      );
       if (existing) return existing;
     }
 
     // 2. Device and action
-    const device = await prisma.device.findUnique({ where: { id: deviceObjectId } });
     if (!device) throw err(404, "DEVICE_NOT_FOUND", "Device not found");
     const type = device.deviceType;
-    const { action, ...params } = body;
     let known = true;
     try {
       getDriver(type);
@@ -232,39 +246,40 @@ export default class CommandService {
       );
     }
 
-    // 6. In-flight limit
-    const inflight = await prisma.command.count({
-      where: { deviceId: device.deviceId, status: { in: [...NON_TERMINAL] } },
-    });
-    if (inflight >= MAX_INFLIGHT_COMMANDS_PER_DEVICE) {
-      throw err(429, "DEVICE_BUSY", "Too many commands in flight for this device");
-    }
-
-    // 7. Broker
-    if (!MqttClient.isConnected()) {
-      throw err(503, "MQTT_UNAVAILABLE", "Message broker is not connected");
-    }
-
-    // 8-11. Create, publish, audit
+    // 6-8. In-flight limit, broker check and create run under a per-device transaction
+    // lock, so parallel submits cannot exceed the in-flight limit.
     const commandId = randomUUID();
     const now = new Date();
-    let row: Command;
+    let row: CommandRow;
     try {
-      row = await prisma.command.create({
-        data: {
-          commandId,
-          idempotencyKey: idempotencyKey ?? commandId,
-          deviceId: device.deviceId,
-          action,
-          params: params as Prisma.InputJsonValue,
-          source: opts.source ?? "web",
-          issuedById: subject.userId,
-          issuedByEmail: subject.email,
-          requestId: meta.requestId ?? null,
-          status: "PENDING",
-          issuedAt: now,
-          expiresAt: new Date(now.getTime() + CommandService.timing.ttlMs),
-        },
+      row = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"command:" + device.deviceId}))`;
+        const inflight = await tx.command.count({
+          where: { deviceId: device.deviceId, status: { in: [...NON_TERMINAL] } },
+        });
+        if (inflight >= MAX_INFLIGHT_COMMANDS_PER_DEVICE) {
+          throw err(429, "DEVICE_BUSY", "Too many commands in flight for this device");
+        }
+        // 7. Broker
+        if (!MqttClient.isConnected()) {
+          throw err(503, "MQTT_UNAVAILABLE", "Message broker is not connected");
+        }
+        return tx.command.create({
+          data: {
+            commandId,
+            idempotencyKey: idempotencyKey ?? commandId,
+            deviceId: device.deviceId,
+            action,
+            params: params as Prisma.InputJsonValue,
+            source: opts.source ?? "web",
+            issuedById: subject.userId,
+            issuedByEmail: subject.email,
+            requestId: meta.requestId ?? null,
+            status: "PENDING",
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() + CommandService.timing.ttlMs),
+          },
+        });
       });
     } catch (e) {
       if (idempotencyKey && isUniqueViolation(e)) {
@@ -325,9 +340,14 @@ export default class CommandService {
 
   /**
    * Backend-originated command (source `system`): no issuer, no liveness or mode
-   * checks, no audit. Used for REQUEST_STATUS after a retained `online` status.
+   * checks, no audit. Used for REQUEST_STATUS after a retained `online` status and for
+   * SET_MODE MANUAL when the experiment sweeper finds a device left in EXPERIMENT mode.
    */
-  static async submitSystem(deviceId: string, action: "REQUEST_STATUS"): Promise<CommandDto> {
+  static async submitSystem(
+    deviceId: string,
+    input: "REQUEST_STATUS" | { action: "SET_MODE"; mode: "MANUAL" },
+  ): Promise<CommandDto> {
+    const { action, ...params } = typeof input === "string" ? { action: input } : input;
     const device = await prisma.device.findUnique({ where: { deviceId } });
     if (!device) throw err(404, "DEVICE_NOT_FOUND", "Device not found");
     if (!MqttClient.isConnected()) {
@@ -341,7 +361,7 @@ export default class CommandService {
         idempotencyKey: commandId,
         deviceId,
         action,
-        params: {},
+        params: params as Prisma.InputJsonValue,
         source: "system",
         status: "PENDING",
         issuedAt: now,
@@ -353,7 +373,7 @@ export default class CommandService {
   }
 
   /** Builds the wire message, validates it, publishes QoS 1 without retain, records the outcome. */
-  private static async dispatch(row: Command, type: string): Promise<void> {
+  private static async dispatch(row: CommandRow, type: string): Promise<void> {
     const { commandId } = row;
     let payload: string;
     try {
@@ -449,8 +469,8 @@ export default class CommandService {
           where: {
             commandId: wire.command_id,
             status: "TIMEOUT",
-            // First late result wins; the field is absent (not null) until set.
-            OR: [{ lateResult: null }, { lateResult: { isSet: false } }],
+            // First late result wins.
+            lateResult: null,
           },
           data: { lateResult: wire.result },
         });
@@ -499,14 +519,14 @@ export default class CommandService {
     };
     const { skip, take } = PaginationUtils.getSkipTake(q.page, q.limit);
     const [rows, total] = await Promise.all([
-      prisma.command.findMany({ where, orderBy: { issuedAt: "desc" }, skip, take }),
+      prisma.command.findMany({ where, orderBy: { issuedAt: "desc" }, skip, take, include: COMMAND_WITH_ACKS }),
       prisma.command.count({ where }),
     ]);
     return PaginationUtils.getPaginationData(rows.map(CommandService.toDto), total, q.page, q.limit);
   }
 
   static async get(commandId: string): Promise<CommandDto> {
-    const row = await prisma.command.findUnique({ where: { commandId } });
+    const row = await prisma.command.findUnique({ where: { commandId }, include: COMMAND_WITH_ACKS });
     if (!row) throw err(404, "COMMAND_NOT_FOUND", "Command not found");
     return CommandService.toDto(row);
   }

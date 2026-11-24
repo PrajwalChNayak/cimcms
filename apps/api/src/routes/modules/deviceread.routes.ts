@@ -2,7 +2,8 @@ import {
   BACKEND_EVENT_TYPES,
   DEVICE_EVENT_TYPES,
   DEVICE_TYPES,
-  objectIdParamSchema,
+  idParamSchema,
+  idSchema,
   pageQuerySchema,
   timeRangeQuerySchema,
   type DeviceType,
@@ -29,7 +30,7 @@ const relayQuery = pageQuerySchema.extend({
   to: iso.optional(),
 });
 const auditQuery = pageQuerySchema.extend({
-  actorId: z.string().regex(/^[a-f0-9]{24}$/).optional(),
+  actorId: idSchema.optional(),
   action: z.string().min(1).max(100).optional(),
   entity: z.string().min(1).max(100).optional(),
   from: iso.optional(),
@@ -44,31 +45,31 @@ export default (router: Router): void => {
   router.get(
     "/devices/:id/state",
     ...read,
-    validate({ params: objectIdParamSchema }),
+    validate({ params: idParamSchema }),
     DeviceReadController.state,
   );
   router.get(
     "/devices/:id/readiness",
     ...read,
-    validate({ params: objectIdParamSchema }),
+    validate({ params: idParamSchema }),
     DeviceReadController.readiness,
   );
   router.get(
     "/devices/:id/telemetry",
     ...read,
-    validate({ params: objectIdParamSchema, query: timeRangeQuerySchema }),
+    validate({ params: idParamSchema, query: timeRangeQuerySchema }),
     DeviceReadController.telemetry,
   );
   router.get(
     "/devices/:id/events",
     ...read,
-    validate({ params: objectIdParamSchema, query: eventsQuery }),
+    validate({ params: idParamSchema, query: eventsQuery }),
     DeviceReadController.events,
   );
   router.get(
     "/devices/:id/relay-changes",
     ...read,
-    validate({ params: objectIdParamSchema, query: relayQuery }),
+    validate({ params: idParamSchema, query: relayQuery }),
     DeviceReadController.relayChanges,
   );
   router.get(

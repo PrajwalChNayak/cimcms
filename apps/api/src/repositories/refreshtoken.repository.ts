@@ -10,8 +10,7 @@ export interface RefreshTokenRecord {
   replacedByHash: string | null;
 }
 
-// Prisma + MongoDB: a missing field does not match `null`, so match both.
-const ACTIVE = { OR: [{ revokedAt: null }, { revokedAt: { isSet: false } }] };
+const ACTIVE = { revokedAt: null };
 
 class RefreshTokenRepository extends BaseRepository {
   static override _modelName = "refreshToken";
@@ -37,6 +36,11 @@ class RefreshTokenRepository extends BaseRepository {
       data: { revokedAt: new Date(), replacedByHash },
     })) as { count: number };
     return res.count === 1;
+  }
+
+  /** True while the family has at least one token that is not revoked. */
+  static async familyHasActive(familyId: string): Promise<boolean> {
+    return (await this.db.count({ where: { familyId, ...ACTIVE } })) > 0;
   }
 
   /** Revokes every still-active token of a family. */

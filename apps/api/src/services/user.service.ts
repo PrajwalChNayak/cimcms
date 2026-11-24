@@ -8,7 +8,8 @@ import UserRepository from '@repositories/user.repository';
 import UserRoleRepository from '@repositories/userrole.repository';
 import { Constants } from '@utils/constant.utils';
 import PaginationUtils, { type PaginationResult } from '@utils/pagination.utils';
-import { AppError, AuthenticationError } from '@utils/errors/custom.errors';
+import { AppError, AuthenticationError, NotFoundError } from '@utils/errors/custom.errors';
+import prisma from '@models/prisma.client';
 import AuditService from '@/services/audit.service';
 import RefreshTokenRepository from '@repositories/refreshtoken.repository';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -34,6 +35,14 @@ export const hashRefreshToken = (token: string): string =>
 export const refreshTtlMs = (): number =>
   Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7') * 24 * 60 * 60 * 1000;
 
+
+/** A rotated refresh token presented again within this window is a parallel-tab race, not theft. */
+const REFRESH_REUSE_GRACE_MS = 10_000;
+
+/** Hash of a random secret, used to spend real Argon2 time on unknown emails. Computed once. */
+let dummyHashPromise: Promise<string> | undefined;
+const dummyHash = (): Promise<string> =>
+  (dummyHashPromise ??= Argon.hashPassword(randomBytes(32).toString('base64url')));
 
 const userImageField = (ownerId?: number): FieldNameDetail[] => [
   {
@@ -173,11 +182,22 @@ class UserService {
     password: string,
     name: string,
     roles?: string[],
+    caller?: { roles?: string[] },
   ): Promise<Record<string, unknown>> {
     const existingUser = await UserRepository.exists({ email });
 
     if (existingUser) {
-      throw new Error('User with this email already exists');
+      throw new AppError('User with this email already exists', 409, 'USER_EXISTS');
+    }
+    if (roles && roles.length > 0) {
+      const found = await prisma.role.findMany({ where: { id: { in: roles } }, select: { id: true, name: true } });
+      if (found.length !== new Set(roles).size) {
+        throw new AppError('Unknown role id', 400, 'VALIDATION_FAILED');
+      }
+      // Only a SUPER_ADMIN may create another SUPER_ADMIN.
+      if (found.some((r) => r.name === 'SUPER_ADMIN') && !caller?.roles?.includes('SUPER_ADMIN')) {
+        throw new AppError('Only a SUPER_ADMIN may grant SUPER_ADMIN', 403, 'FORBIDDEN');
+      }
     }
     const hashedPassword = await Argon.hashPassword(password);
 
@@ -241,13 +261,21 @@ class UserService {
 
   /** Loads roles and permissions from the DB (never from a token). */
   private static async loadCurrentUser(user: User): Promise<CurrentUserDto> {
-    const userRoles = await UserRoleRepository.findByUserId(user.id);
+    // Disabled or deleted roles and permissions grant nothing.
+    const userRoles = (await UserRoleRepository.findByUserId(user.id)).filter(
+      (ur) => ur.role.status === 'ACTIVE',
+    );
     const roles = [...new Set(userRoles.map((ur) => ur.role.name))];
     const permissionSets = await Promise.all(
       userRoles.map((ur) => RolePermissionRepository.findByRoleId(ur.roleId)),
     );
     const permissions = [
-      ...new Set(permissionSets.flat().map((rp) => rp.permission.name)),
+      ...new Set(
+        permissionSets
+          .flat()
+          .filter((rp) => rp.permission.status === 'ACTIVE')
+          .map((rp) => rp.permission.name),
+      ),
     ];
     return {
       id: user.id,
@@ -321,14 +349,17 @@ class UserService {
 
     const user = await UserRepository.findByEmail(email);
     if (!user) {
+      // Same Argon2 cost as a real check, so response time does not reveal unknown emails.
+      await Argon.verifyPassword(password, await dummyHash());
       return fail('Invalid email or password', 'UNKNOWN_USER');
-    }
-    if (!UserService.isActive(user)) {
-      return fail('Account is not active', 'INACTIVE');
     }
     const isValid = await Argon.verifyPassword(password, user.password);
     if (!isValid) {
       return fail('Invalid email or password', 'BAD_PASSWORD');
+    }
+    // Checked after the password so the account state is never revealed to a guesser.
+    if (!UserService.isActive(user)) {
+      return fail('Account is not active', 'INACTIVE');
     }
 
     const me = await UserService.loadCurrentUser(user);
@@ -377,24 +408,50 @@ class UserService {
     const oldHash = hashRefreshToken(presentedToken);
     const record = await RefreshTokenRepository.findByHash(oldHash);
     if (!record) return reject();
+    if (record.expiresAt.getTime() <= Date.now()) return reject();
+
+    const activeUser = async (): Promise<User> => {
+      const u = (await UserRepository.findById(record.userId)) as User | null;
+      if (!u || !UserService.isActive(u)) {
+        await RefreshTokenRepository.revokeFamily(record.familyId);
+        return reject();
+      }
+      return u;
+    };
+
+    /**
+     * Two tabs (or a retried request) can send the same cookie at the same moment. If the
+     * token was rotated (not logged out) less than REFRESH_REUSE_GRACE_MS ago and its family
+     * is still alive, this is a benign race: issue a sibling token in the same family instead
+     * of treating it as theft. Anything older is reuse and kills the family.
+     */
+    const graceSibling = async (): Promise<{ accessToken: string; refreshToken: string; user: CurrentUserDto } | null> => {
+      const fresh = await RefreshTokenRepository.findByHash(oldHash);
+      if (!fresh?.revokedAt || !fresh.replacedByHash) return null;
+      if (Date.now() - fresh.revokedAt.getTime() > REFRESH_REUSE_GRACE_MS) return null;
+      if (!(await RefreshTokenRepository.familyHasActive(fresh.familyId))) return null;
+      const u = await activeUser();
+      const sibling = await UserService.issueRefreshToken(u.id, fresh.familyId, meta);
+      const me = await UserService.loadCurrentUser(u);
+      return { accessToken: UserService.signAccessToken(me), refreshToken: sibling, user: me };
+    };
 
     if (record.revokedAt) {
+      const sibling = await graceSibling();
+      if (sibling) return sibling;
       await auditReuse(record, false);
       return reject();
     }
-    if (record.expiresAt.getTime() <= Date.now()) return reject();
 
-    const user = (await UserRepository.findById(record.userId)) as User | null;
-    if (!user || !UserService.isActive(user)) {
-      await RefreshTokenRepository.revokeFamily(record.familyId);
-      return reject();
-    }
+    const user = await activeUser();
 
     const nextToken = randomBytes(32).toString('base64url');
     const nextHash = hashRefreshToken(nextToken);
-    // Atomic claim: if a parallel request already rotated it, treat as reuse.
+    // Atomic claim: a parallel request may have rotated it a moment ago (grace), else reuse.
     const claimed = await RefreshTokenRepository.revokeIfActive(oldHash, nextHash);
     if (!claimed) {
+      const sibling = await graceSibling();
+      if (sibling) return sibling;
       await auditReuse(record, true);
       return reject();
     }
@@ -438,14 +495,38 @@ class UserService {
     return UserService.loadCurrentUser(user);
   }
 
-  static async resetPassword(email: string, newPassword: string): Promise<void> {
+  /**
+   * Admin password reset (route needs USER_UPDATE). Only a SUPER_ADMIN may reset a
+   * SUPER_ADMIN. All refresh tokens of the target are revoked.
+   */
+  static async resetPassword(
+    email: string,
+    newPassword: string,
+    caller: { userId?: string; email?: string; roles?: string[] },
+    meta: AuthMeta = {},
+  ): Promise<void> {
     const user = await UserRepository.findByEmail(email);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
+    }
+    const targetRoles = (await UserRoleRepository.findByUserId(user.id)).map((ur) => ur.role.name);
+    if (targetRoles.includes('SUPER_ADMIN') && !caller.roles?.includes('SUPER_ADMIN')) {
+      throw new AppError('Only a SUPER_ADMIN may reset a SUPER_ADMIN password', 403, 'FORBIDDEN');
     }
     const hashedPassword = await Argon.hashPassword(newPassword);
-    return UserRepository.updateById(user.id, {
-      password: hashedPassword,
+    await UserRepository.updateById(user.id, { password: hashedPassword });
+    await prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await AuditService.record({
+      action: 'PASSWORD_RESET',
+      entity: 'User',
+      entityId: user.id,
+      actorId: caller.userId ?? null,
+      actorEmail: caller.email ?? null,
+      ip: meta.ip,
+      requestId: meta.requestId,
     });
   }
 }

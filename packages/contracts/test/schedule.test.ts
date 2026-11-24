@@ -114,7 +114,7 @@ describe('istParts', () => {
 });
 
 describe('schedule REST schemas', () => {
-  const base = { roomId: 'a'.repeat(24), name: 'Daily', effectiveFrom: '2026-11-22' };
+  const base = { roomId: '00000000-0000-4000-8000-000000000001', name: 'Daily', effectiveFrom: '2026-11-22' };
   const rule = { days: [1, 2], on: '06:00', off: '18:00' };
 
   it('accepts a valid schedule', () => {

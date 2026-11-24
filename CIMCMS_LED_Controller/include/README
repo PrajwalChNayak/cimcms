@@ -1,0 +1,63 @@
+
+# CIMCMS LED Controller V1
+
+## Hardware
+
+- ESP32 DevKit V1
+- PCF8574 Keypad: 0x20
+- PCF8574 Odd Relay Bank: 0x21
+- PCF8574 Even Relay Bank: 0x22
+- SSD1306 OLED: 0x3C
+- DS3231 RTC: 0x68
+- WS2812: 24 LEDs, GPIO18
+
+## GPIO
+
+- SDA: GPIO21
+- SCL: GPIO22
+- WS2812 Data: GPIO18
+
+## Relay Mapping
+
+Odd bank 0x21:
+- P0 = Relay 1
+- P1 = Relay 3
+- P2 = Relay 5
+- P3 = Relay 7
+- P4 = Relay 9
+- P5 = Relay 11
+- P6 = Relay 13
+- P7 = Relay 15
+
+Even bank 0x22:
+- P0 = Relay 2
+- P1 = Relay 4
+- P2 = Relay 6
+- P3 = Relay 8
+- P4 = Relay 10
+- P5 = Relay 12
+- P6 = Relay 14
+- P7 = Relay 16
+
+## Relay software development
+
+All 16 relay channels are enabled. The default development backend is software simulation; no relay PCF8574 hardware is required to test relay state logic. Set RELAY_SIMULATION_MODE to false when beginning physical PCF8574 integration.
+
+## Keypad
+
+- Enter two digits from 01 to 16.
+- # confirms and toggles the selected relay.
+- * cancels.
+- A = Manual.
+- B = Maintenance.
+- C = Auto (not yet implemented).
+- D = Experiment (after the combo timeout).
+- D, #, # = Start Wi-Fi setup hotspot.
+
+## Development status
+
+Local hardware control is implemented.
+Wi-Fi, MQTT, scheduling, NTP and persistent
+configuration are planned integration phases.
+
+Disconnect mains loads during development testing.

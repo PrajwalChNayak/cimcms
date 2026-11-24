@@ -162,6 +162,34 @@ export default class DeviceStateService {
     return { before, after, livenessChanged };
   }
 
+  /**
+   * Liveness sweeper: ONLINE -> STALE only if the device is still silent since `cutoff`.
+   * One conditional UPDATE, so a message that arrives during the sweep is never overwritten.
+   * Returns true when the device was moved to STALE.
+   */
+  static async markStaleIfSilent(deviceId: string, cutoff: Date): Promise<boolean> {
+    const { count } = await prisma.deviceStatus.updateMany({
+      where: { deviceId, liveness: "ONLINE", lastSeenAt: { lt: cutoff } },
+      data: { liveness: "STALE" },
+    });
+    if (count === 0) return false;
+    try {
+      await DeviceStateService.recordBackendEvent(deviceId, "STALE", { previous: "ONLINE" });
+    } catch (err) {
+      logger.error("liveness event write failed", { deviceId, error: String(err) });
+    }
+    const after = await DeviceStateService.get(deviceId);
+    if (after) {
+      RealtimeEmitter.connectivity(deviceId, {
+        liveness: after.liveness,
+        lastSeenAt: after.lastSeenAt?.toISOString() ?? null,
+        connectivity: (after.connectivity as ConnectivityDto | null) ?? null,
+      });
+      DeviceStateService.emitStatus(after);
+    }
+    return true;
+  }
+
   /** Sets liveness only (used by the liveness sweeper), emitting connectivity + status on change. */
   static async setLiveness(deviceId: string, type: string, liveness: Liveness): Promise<boolean> {
     const { after, livenessChanged } = await DeviceStateService.apply(deviceId, type, {}, liveness);

@@ -90,6 +90,11 @@ describe("POST /user/token/refresh", () => {
     const second = refreshCookieValue(r1);
     expect(second).not.toBe(first);
 
+    // Reuse after the parallel-tab grace window (10 s): pretend the rotation was a minute ago.
+    await prisma.refreshToken.updateMany({
+      where: { userId: user.id, replacedByHash: { not: null } },
+      data: { revokedAt: new Date(Date.now() - 60_000) },
+    });
     const reuse = await refresh(first);
     expect(reuse.status).toBe(401);
     expect(reuse.body.errorCode).toBe("UNAUTHENTICATED");
@@ -99,6 +104,31 @@ describe("POST /user/token/refresh", () => {
 
     const audit = await prisma.auditLog.findMany({ where: { action: "REFRESH_TOKEN_REUSE", actorId: user.id } });
     expect(audit.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("two tabs refreshing with the same cookie both stay logged in (grace window)", async () => {
+    const user = await createUserWithRole("OPERATOR");
+    const shared = refreshCookieValue(await login(user));
+
+    // Parallel, as when two tabs boot at once.
+    const [a, b] = await Promise.all([refresh(shared), refresh(shared)]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    // And once more right after (a retried request).
+    const c = await refresh(shared);
+    expect(c.status).toBe(200);
+
+    // Every cookie handed out still works, and no reuse was recorded.
+    for (const res of [a, b, c]) expect((await refresh(refreshCookieValue(res))).status).toBe(200);
+    expect(await prisma.auditLog.count({ where: { action: "REFRESH_TOKEN_REUSE", actorId: user.id } })).toBe(0);
+  });
+
+  it("no grace after logout: the logged-out cookie is refused", async () => {
+    const user = await createUserWithRole("OPERATOR");
+    const value = refreshCookieValue(await login(user));
+    await request(getTestApp())
+      .post(`${BASE}/token/logout`)
+      .set("Cookie", `${COOKIE}=${value}`);
+    expect((await refresh(value)).status).toBe(401);
   });
 
   it("returns 401 without cookie, with an unknown token, and with an expired token", async () => {

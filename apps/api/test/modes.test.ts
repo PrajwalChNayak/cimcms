@@ -266,7 +266,7 @@ describe("GET /devices/:id/readiness", () => {
   it("needs DEVICE_READ and a known device", async () => {
     expect((await request(app).get(`${API}/devices/${ledOid}/readiness`)).status).toBe(401);
     const missing = await request(app)
-      .get(`${API}/devices/aaaaaaaaaaaaaaaaaaaaaaaa/readiness`)
+      .get(`${API}/devices/00000000-0000-4000-8000-000000000000/readiness`)
       .set("Authorization", `Bearer ${tokens.viewer.token}`);
     expect(missing.status).toBe(404);
   });

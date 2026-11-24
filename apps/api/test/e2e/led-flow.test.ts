@@ -77,7 +77,7 @@ afterAll(async () => {
   await prisma.permission.deleteMany();
 });
 
-describe("LED controller end-to-end (aedes broker, in-memory Mongo, API, simulator)", () => {
+describe("LED controller end-to-end (aedes broker, embedded Postgres, API, simulator)", () => {
   const auth = (req: request.Test): request.Test => req.set("Authorization", `Bearer ${token}`);
   let ledId: string;
   let commandId: string;

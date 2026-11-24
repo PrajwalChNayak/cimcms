@@ -1,4 +1,6 @@
 import type { Device } from '@prisma/client';
+import { MqttDispatcher } from '@/mqtt/mqtt.dispatcher';
+import MqttAccountService, { type AccountActor } from '@services/mqttaccount.service';
 import DeviceRepository from '@repositories/device.repository';
 import { NotFoundError } from '@utils/errors/custom.errors';
 
@@ -7,7 +9,12 @@ type DeviceCreateInput = Pick<Device, 'deviceId' | 'deviceType'> &
 
 class DeviceService {
   static async createDevice(data: DeviceCreateInput): Promise<Device> {
-    return DeviceRepository.create<Device>(data as Record<string, unknown>);
+    // `type` mirrors `deviceType`, as the seed does.
+    const device = await DeviceRepository.create<Device>({ type: data.deviceType, ...data } as Record<string, unknown>);
+    // A controller that tried to connect before it was registered was cached as unknown:
+    // forget that so its next message is accepted at once.
+    MqttDispatcher.forget(device.deviceId);
+    return device;
   }
 
   static async createDeviceFarmer(
@@ -50,7 +57,11 @@ class DeviceService {
     const device = await DeviceRepository.findOne<Device>(
       { id },
       {
-        include: { consumer: true, farm: true },
+        // Never return the consumer's password hash.
+        include: {
+          consumer: { select: { id: true, email: true, name: true, mobileNumber: true } },
+          farm: true,
+        },
       },
     );
     if (!device) throw new NotFoundError('Device not found');
@@ -69,10 +80,14 @@ class DeviceService {
     );
   }
 
-  static async deleteDevice(id: string): Promise<Device> {
+  static async deleteDevice(id: string, actor: AccountActor = {}): Promise<Device> {
     const existing = await DeviceRepository.findOne<Device>({ id });
     if (!existing) throw new NotFoundError('Device not found');
-    return DeviceRepository.deleteById<Device>(id, false);
+    // Remove its broker account first: if that fails, the device stays (consistent).
+    await MqttAccountService.remove(existing.deviceId, actor);
+    const deleted = await DeviceRepository.deleteById<Device>(id, false);
+    MqttDispatcher.forget(existing.deviceId);
+    return deleted;
   }
 }
 

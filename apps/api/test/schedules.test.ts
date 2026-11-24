@@ -133,7 +133,7 @@ describe("schedule CRUD and validation", () => {
     const list = await call("get", `/schedules?roomId=${roomA}&status=DRAFT`, "viewer");
     expect(list.body.result.data).toHaveLength(1);
     expect((await call("get", `/schedules?status=PUBLISHED`, "viewer")).body.result.data).toHaveLength(0);
-    expect((await call("get", "/schedules/aaaaaaaaaaaaaaaaaaaaaaaa", "viewer")).body.errorCode).toBe("SCHEDULE_NOT_FOUND");
+    expect((await call("get", "/schedules/00000000-0000-4000-8000-000000000000", "viewer")).body.errorCode).toBe("SCHEDULE_NOT_FOUND");
   });
 
   it("rejects overlapping windows with SCHEDULE_OVERLAP and details", async () => {
@@ -155,7 +155,7 @@ describe("schedule CRUD and validation", () => {
     expect(await bad({ rules: [{ days: [1, 1], on: "06:00", off: "07:00" }] })).toBe("VALIDATION_FAILED");
     expect(await bad({ effectiveFrom: "2026-13-40" })).toBe("VALIDATION_FAILED");
     expect(await bad({ effectiveTo: today(-5) })).toBe("VALIDATION_FAILED");
-    expect(await bad({ roomId: "b".repeat(24) })).toBe("ROOM_NOT_FOUND");
+    expect(await bad({ roomId: "00000000-0000-4000-8000-0000000000bb" })).toBe("ROOM_NOT_FOUND");
     await create("operator");
     const dup = await call("post", "/schedules", "operator", body({ name: "Another" }));
     expect(dup.status).toBe(409);

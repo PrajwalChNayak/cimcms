@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { SCHEDULE_STATUSES } from '../dto/schedules.js';
 import { findWindowOverlaps } from '../schedule.js';
+import { idSchema } from './ids.js';
 import { pageQuerySchema } from './index.js';
 
-const objectId = z.string().regex(/^[a-f0-9]{24}$/);
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 /** A real calendar day, YYYY-MM-DD. */
 export const dateOnlySchema = z
@@ -37,7 +37,7 @@ const dateRange = (b: { effectiveFrom?: string; effectiveTo?: string | null }): 
 
 export const createScheduleBodySchema = z
   .object({
-    roomId: objectId,
+    roomId: idSchema,
     name: z.string().trim().min(1).max(80),
     rules: scheduleRulesSchema,
     effectiveFrom: dateOnlySchema,
@@ -58,7 +58,7 @@ export const updateScheduleBodySchema = z
 export type UpdateScheduleBody = z.infer<typeof updateScheduleBodySchema>;
 
 export const scheduleListQuerySchema = pageQuerySchema.extend({
-  roomId: objectId.optional(),
+  roomId: idSchema.optional(),
   status: z.enum(SCHEDULE_STATUSES).optional(),
 });
 export type ScheduleListQuery = z.infer<typeof scheduleListQuerySchema>;

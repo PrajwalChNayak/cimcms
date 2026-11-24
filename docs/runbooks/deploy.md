@@ -1,19 +1,19 @@
 # Runbook: deploy CIMCMS (T4.5, HUMAN-ONLY execution)
 
-An operator runs this on the production server. No automated agent may SSH to the server or touch the live Mosquitto broker. Related: `infra/prod/docker-compose.yml`, `infra/prod/nginx/cimcms.conf`, `docs/runbooks/mosquitto-hardening.md`, `docs/runbooks/backup-restore.md`.
+An operator runs this on the production server. No automated agent may SSH to the server or touch the live MQTT broker. Related: `infra/prod/docker-compose.yml`, `infra/prod/nginx/cimcms.conf`, `docs/runbooks/broker.md` (own MQTT broker; `mosquitto-hardening.md` is superseded), `docs/runbooks/backup-restore.md`.
 
-Placeholders (replace yourself, never write real values into Git, chat or tickets): `<domain>` the public host name, `<tag>` the image tag (for example `2025.01.15-1`), `<repo>` the checkout on the server (for example `/opt/cimcms/repo`), `<broker-host>` the existing Mosquitto host, `<admin-email>` the first admin's e-mail, `<deploy-user>` the operator account.
+Placeholders (replace yourself, never write real values into Git, chat or tickets): `<domain>` the public host name, `<tag>` the image tag (for example `2025.01.15-1`), `<repo>` the checkout on the server (for example `/opt/cimcms/repo`), `<broker-host>` the public MQTT host name (on the broker certificate, for example `mqtt.<domain>`), `<admin-email>` the first admin's e-mail, `<deploy-user>` the operator account.
 
-Design rules to keep in mind: exactly ONE `api` container (never scale it, never enable pm2 cluster mode: it would duplicate MQTT ingestion); mongo is never published to the host; same-origin deployment (`/` SPA, `/api/`, `/socket.io/`).
+Design rules to keep in mind: exactly ONE `api` container (never scale it, never enable pm2 cluster mode: it would duplicate MQTT ingestion); postgres is never published to the host; same-origin deployment (`/` SPA, `/api/`, `/socket.io/`).
 
 ## 1. Server prerequisites
 
 - Linux server with a public IP and a DNS `A` record `<domain>` pointing to it.
 - Docker Engine and the compose plugin (`docker compose version`).
-- Firewall: allow inbound 80 and 443 (web). 8883 is on the broker host (see the Mosquitto runbook). Do **not** open 27017 or 3814.
+- Firewall: allow inbound 80 and 443 (web) and 8883 (MQTTS, service `broker`); 1883 only while plain-MQTT devices such as the Humidifier still need it. Do **not** open 5432, 3814 or 8081.
 - SSH access by key only for the operators.
 - `git` to fetch this repository; the deploy user is in the `docker` group.
-- Mosquitto hardening (`mosquitto-hardening.md`) done first: accounts `cimcms-backend` and `LED-01` exist and the 8883 TLS listener works.
+- MQTT: the stack includes the own broker (service `broker`, `docs/runbooks/broker.md`); logins live in the database table `MqttAccount` and are created after the first start (section 3.5). A certificate for `<broker-host>` (`MQTT_DOMAIN` in `.env`, default `DOMAIN`) readable by uid 1000 (`broker.md`, TLS). On the current server that still runs Mosquitto, follow `infra/server-broker/README.md` instead.
 
 ## 2. Build or obtain images
 
@@ -23,6 +23,7 @@ Images are built from the repo root and tagged locally; nothing is pushed anywhe
 cd <repo>
 docker build -f apps/api/Dockerfile -t cimcms-api:<tag> .
 docker build -f apps/web/Dockerfile -t cimcms-web:<tag> .
+docker build -f apps/broker/Dockerfile -t cimcms-broker:<tag> .
 # expect no .env file in the api image:
 docker run --rm --entrypoint sh cimcms-api:<tag> -c 'ls -la; find / -name ".env*" -not -path "*/node_modules/*" 2>/dev/null'
 ```
@@ -37,22 +38,21 @@ If the owner later provides a registry, `docker pull` the same tags instead and 
 sudo install -d -m 700 -o <deploy-user> /opt/cimcms/secrets
 cd /opt/cimcms/secrets
 cp <repo>/infra/prod/api.env.example api.env
-cp <repo>/infra/prod/mongo.env.example mongo.env
-openssl rand -base64 756 | tr -d '\n' > mongo-keyfile      # Mongo replica-set keyfile
-chmod 600 api.env mongo.env mongo-keyfile
+cp <repo>/infra/prod/postgres.env.example postgres.env
+cp <repo>/infra/prod/broker.env.example broker.env
+chmod 600 api.env postgres.env broker.env
 ```
 
-Edit `api.env` and `mongo.env` and replace every `<placeholder>`:
+Edit `api.env`, `postgres.env` and `broker.env` and replace every `<placeholder>`:
 
 - `JWT_SECRET_KEY`, `SESSION_SECRET_KEY`: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` or `openssl rand -base64 32`.
-- Mongo root user and password in `mongo.env`; the same user and password in `DATABASE_URL` of `api.env` (URL-encode special characters). Database name `cimcms`.
-- `APP_BASE_URL=https://<domain>`, `MQTT_URL=mqtts://<broker-host>:8883`, `MQTT_USERNAME=cimcms-backend`, `MQTT_PASSWORD` from the password manager, `MQTT_CLIENT_ID=cimcms-backend` (must differ from dev).
+- Postgres user, password and database (`cimcms`) in `postgres.env`; the same values in `DATABASE_URL` of `api.env` and `broker.env` (`postgresql://<user>:<password>@postgres:5432/cimcms?schema=public`, URL-encode special characters in the password).
+- `APP_BASE_URL=https://<domain>`, `MQTT_URL=mqtt://broker:1883` (the API reaches the broker over the private compose network), `MQTT_USERNAME=cimcms-backend`, `MQTT_PASSWORD` from section 3.5 (password manager), `MQTT_CLIENT_ID=cimcms-backend` (must differ from dev).
+- Device broker accounts: `MQTT_PROVISIONING=broker` (default): adding a device in the web app creates its login in `MqttAccount`, shows the password once, and Reset password / delete work from the device page. `MQTT_DEVICE_URL=mqtts://<broker-host>:8883` is the public address the web app shows with each device account. There are no `MQTT_ADMIN_*` settings any more. `manual` is only for an external broker.
 - `API_DOCS_ENABLED=false`, `REFRESH_COOKIE_PATH=/api/user/token`, `MAIN_ROUTE` equal to the value in `infra/prod/.env` (default `api/v1`).
 - Docker env files do not strip quotes: write values without quotes.
 
 Store a copy of the secrets in the encrypted store (`backup-restore.md` section 5).
-
-The compose file copies the keyfile inside the mongo container and sets the owner and mode itself, so no `chown` on the host is needed.
 
 ### 3.2 Deployment parameters
 
@@ -90,12 +90,12 @@ cd <repo>/infra/prod
 docker compose config >/dev/null && echo config ok
 docker compose up -d
 docker compose ps
-docker compose logs --tail 50 mongo api
+docker compose logs --tail 50 postgres api broker
 ```
 
-Expected: `mongo` becomes healthy (it initiates replica set `rs0` itself on first start; allow up to about a minute), then `api` and `web` start. `docker compose ps` shows no published port for `mongo` and `api`; only `web` has 80 and 443.
+Expected: `postgres` becomes healthy, then `api` starts: its entrypoint first runs `prisma migrate deploy` (creates or updates the schema; the log lists the applied migrations), then the API. `broker` starts once postgres is healthy (it never runs migrations; until the api has applied them its logins fail, so check its log after the api is up). Then `web` starts. `docker compose ps` shows no published port for `postgres` and `api`; `web` has 80 and 443, `broker` 1883 and 8883.
 
-The `api` healthcheck calls `/health/ready` (plan task T2.10). Until the image contains that endpoint the `api` container reports `unhealthy`; this does not stop `web`.
+The `api` healthcheck calls `/health/ready` (database and broker reachable). The `broker` healthcheck calls `GET /health` on port 8081 inside the container (`docker compose exec broker curl -fsS http://localhost:8081/health`).
 
 ### 3.5 Seed data
 
@@ -115,6 +115,16 @@ docker compose exec api node dist/src/models/seed-admin.js --email <admin-email>
 
 Remove `BOOTSTRAP_ADMIN_PASSWORD` from `api.env` again and run `docker compose up -d api`. Seed devices come from `SEED_DEVICES` in `api.env` (default `LED-01:LED_CONTROLLER:LED Controller 1`); re-run `seed.js` after editing it. Do not invent other device IDs.
 
+Broker logins (`docs/runbooks/broker.md`, Accounts):
+
+```bash
+docker compose exec api node dist/src/models/mqtt-account.js --username cimcms-backend --kind service   # prints the password once: put it in api.env MQTT_PASSWORD
+docker compose exec -e MQTT_ACCOUNT_PASSWORD='<humidifier password>' api node dist/src/models/mqtt-account.js --username mqttuser --kind legacy   # only if the Humidifier connects to this broker
+docker compose up -d api    # re-read api.env
+```
+
+Device logins (for example `LED-01`) come from the web app: open the device, Reset password, and enter the new password on the device.
+
 (`npm run seed` / `seed:admin` need dev tooling and TypeScript sources that are not in the runtime image; the compiled files above are the supported way.)
 
 ### 3.6 Schedule backups
@@ -123,16 +133,16 @@ Follow `docs/runbooks/backup-restore.md` section 2 and run one backup now.
 
 ## 4. Update procedure
 
-1. Back up first: `cd <repo>/infra/prod && ./scripts/backup-mongo.sh`.
+1. Back up first: `cd <repo>/infra/prod && ./scripts/backup-postgres.sh`.
 2. Note the current tag (`grep CIMCMS_TAG .env`); it is the rollback target.
 3. `cd <repo> && git fetch && git checkout <release-ref>`.
 4. Build or pull the new images with tag `<new-tag>` (section 2). Keep the previous images on the server.
 5. Set `CIMCMS_TAG=<new-tag>` in `infra/prod/.env`.
-6. `docker compose up -d` (recreates `api` and `web`; mongo is untouched unless its definition changed).
-7. Check: `docker compose ps`; `docker compose logs --tail 100 api`; `curl -fsS https://<domain>/api/health/ready` (once the endpoint exists); open the site and log in.
+6. `docker compose up -d` (recreates `api`, `broker` and `web`; clients reconnect to the broker within seconds; postgres is untouched unless its definition changed). The new `api` container applies pending migrations before it starts.
+7. Check: `docker compose ps`; `docker compose logs --tail 100 api`; `docker compose exec api curl -fsS http://localhost:3814/health/ready`; open the site and log in.
 8. Run the smoke checklist (section 6) when the release changes behaviour.
 
-Schema changes: the API creates the time-series collection at start (idempotent). If a release adds Prisma models or indexes, the release notes must give the exact command; take the backup in step 1 first. Never run `prisma db push --accept-data-loss` against production.
+Schema changes ship as Prisma migration files (`apps/api/src/models/tables/migrations`) and the api entrypoint applies them (`prisma migrate deploy`). Take the backup in step 1 first. Never run `prisma db push`, `migrate dev` or `migrate reset` against production. To check state: `docker compose exec api node node_modules/prisma/build/index.js migrate status --schema ./prisma/schema.prisma`.
 
 ## 5. Rollback
 
@@ -143,23 +153,24 @@ docker compose up -d
 docker compose ps
 ```
 
-The previous images are still local. If the failed release changed data incompatibly, stop `api` and restore the pre-update backup (`backup-restore.md` section 3.1). For certificate or Nginx problems: `docker compose logs web` and `docker compose exec web nginx -t`.
+The previous images are still local. Migrations only move forward: rolling back the image does not undo a migration. If the failed release changed the schema or data incompatibly, stop `api` and restore the pre-update backup (`backup-restore.md` section 3.1) before starting the previous image. For certificate or Nginx problems: `docker compose logs web` and `docker compose exec web nginx -t`.
 
 ## 6. Smoke test checklist (FRS acceptance criteria, plan section 11)
 
 Run from a normal browser (desktop and phone) and on the server. Record date, tag and result per line.
 
 - [ ] HTTPS login works for an internal user; HTTP redirects to HTTPS; the certificate is valid; a page reload keeps the session (refresh cookie).
-- [ ] No MQTT credentials, JWT secrets or broker details reach the browser (page source, network tab); `curl -I https://<domain>/` shows HSTS and CSP headers.
+- [ ] No MQTT credentials, JWT secrets or broker details reach the browser (page source, network tab); `curl -I https://<domain>/` shows HSTS and CSP headers. The only intended exceptions: with `MQTT_PROVISIONING=broker`, a device's own new password is shown once to the admin who adds the device or resets its password, and `MQTT_DEVICE_URL` is shown with the device account. The backend MQTT credentials must never appear.
 - [ ] `https://<domain>/api/user/me` without login returns 401 JSON; `/api-docs` is not served.
 - [ ] WebSocket `/socket.io/` connects (the devices page updates live without refresh).
 - [ ] Device `LED-01` appears; ONLINE/OFFLINE follows the physical device. Simulation mode stays ON: never change firmware `RELAY_SIMULATION_MODE`, never disable relay channels.
 - [ ] A relay command from the UI is acknowledged and its result shown (success and timeout paths), per FRS 7.2.
 - [ ] A user without the permission cannot send commands; permissions gate the navigation.
 - [ ] History pages show telemetry in `Asia/Kolkata` time.
-- [ ] The existing Humidifier still reports on `cimcms/humidifier/<id>/status` and is undisturbed (`mosquitto-hardening.md` step 10).
+- [ ] The existing Humidifier still reports on `cimcms/humidifier/<id>/status` and is undisturbed (its `mqttuser` login is a LEGACY account, `broker.md`).
 - [ ] After `docker compose restart` of the whole stack everything returns without manual steps.
-- [ ] A backup file exists and `gzip -t` passes (`backup-restore.md` section 2).
-- [ ] `docker compose ps`: only `web` publishes ports (80, 443); `ss -ltn` on the host shows no 27017 or 3814.
+- [ ] `docker compose ps` shows `broker` healthy; `infra/dev/check-mqtt.ps1 -Url mqtts://<broker-host>:8883 -DeviceId LED-01` prints CONNECTED.
+- [ ] A backup file exists and `pg_restore --list` reads it (`backup-restore.md` section 2).
+- [ ] `docker compose ps`: only `web` publishes ports (80, 443); `ss -ltn` on the host shows no 5432 or 3814.
 
 Record the completed run in `docs/PROGRESS.md`. A full dry run on a staging VM is recommended before the first real install.

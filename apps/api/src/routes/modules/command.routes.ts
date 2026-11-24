@@ -1,7 +1,7 @@
 import {
   COMMAND_STATUSES,
   idempotencyKeySchema,
-  objectIdParamSchema,
+  idParamSchema,
   pageQuerySchema,
   submitCommandBodySchema,
 } from "@cimcms/contracts";
@@ -28,7 +28,7 @@ export default (router: Router): void => {
     requirePermission("DEVICE_COMMAND"), // SET_ALL_RELAYS also needs DEVICE_COMMAND_BULK (checked in the service)
     commandLimiter,
     validate({
-      params: objectIdParamSchema,
+      params: idParamSchema,
       headers: submitHeadersSchema,
       body: submitCommandBodySchema,
     }),
@@ -40,7 +40,7 @@ export default (router: Router): void => {
     authenticateToken,
     requirePermission("DEVICE_DIAGNOSTICS"),
     commandLimiter,
-    validate({ params: objectIdParamSchema, headers: submitHeadersSchema }),
+    validate({ params: idParamSchema, headers: submitHeadersSchema }),
     CommandController.rtcSync,
   );
 
@@ -48,7 +48,7 @@ export default (router: Router): void => {
     "/devices/:id/commands",
     authenticateToken,
     requirePermission("DEVICE_READ"),
-    validate({ params: objectIdParamSchema, query: listQuerySchema }),
+    validate({ params: idParamSchema, query: listQuerySchema }),
     CommandController.list,
   );
 

@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { ROOM_STATUSES } from '../dto/rooms.js';
 import { deviceIdSchema, relayNo } from '../mqtt/primitives.js';
+import { idSchema } from './ids.js';
 import { pageQuerySchema } from './index.js';
 
-const objectId = z.string().regex(/^[a-f0-9]{24}$/);
 
 export const roomCodeSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$/);
 
 export const createRoomBodySchema = z.object({
   code: roomCodeSchema,
   name: z.string().trim().min(1).max(80),
-  farmId: objectId.optional(),
+  farmId: idSchema.optional(),
   notes: z.string().max(500).optional(),
   status: z.enum(ROOM_STATUSES).optional(),
 });
@@ -20,7 +20,7 @@ export type CreateRoomBody = z.infer<typeof createRoomBodySchema>;
 export const updateRoomBodySchema = z
   .object({
     name: z.string().trim().min(1).max(80).optional(),
-    farmId: objectId.nullable().optional(),
+    farmId: idSchema.nullable().optional(),
     notes: z.string().max(500).nullable().optional(),
     status: z.enum(ROOM_STATUSES).optional(),
   })

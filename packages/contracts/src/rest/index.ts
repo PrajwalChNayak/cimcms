@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { mode, onOff, relayNo } from '../mqtt/primitives.js';
+import { idSchema } from './ids.js';
 
 export const submitCommandBodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('SET_RELAY'), relay: relayNo, state: onOff }),
@@ -19,4 +20,5 @@ export const pageQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
-export const objectIdParamSchema = z.object({ id: z.string().regex(/^[a-f0-9]{24}$/) });
+export { idSchema };
+export const idParamSchema = z.object({ id: idSchema });

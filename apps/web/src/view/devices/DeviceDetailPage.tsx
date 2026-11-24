@@ -17,7 +17,13 @@ import {
   relayCountText,
 } from "@features/devices/utils/deviceTypeInfo";
 import { SimulationBanner } from "@features/ledControl/components/SimulationBanner";
+import { useUpdateDeviceMutation } from "@api/deviceApi";
+import { BrokerAccountCard } from "@features/devices/components/BrokerAccountCard";
+import { EditDeviceModal, NextSteps } from "@features/devices/components/DeviceFormModal";
+import { usePermission } from "@shared/hooks/usePermission";
+import { extractErrorMessage } from "@shared/utils/errorUtils";
 import { formatIst, formatRelative } from "@shared/utils/time";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 export const DeviceDetailPage = () => {
@@ -33,6 +39,10 @@ export const DeviceDetailPage = () => {
     eventsLoading,
     rssiSeries,
   } = useDeviceDetail(deviceId);
+  const canManage = usePermission("DEVICE_MANAGE");
+  const [updateDevice, { isLoading: saving }] = useUpdateDeviceMutation();
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -89,6 +99,18 @@ export const DeviceDetailPage = () => {
               <LivenessBadge liveness={state?.liveness} />
             )}
             {simulation && <SimulationBadge />}
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditError(null);
+                  setEditing(true);
+                }}
+                className="rounded-btn border border-border px-3 py-1.5 text-xs font-medium text-text-primary cursor-pointer"
+              >
+                Edit
+              </button>
+            )}
           </div>
         </div>
 
@@ -102,6 +124,7 @@ export const DeviceDetailPage = () => {
               label="Last seen"
               value={`${formatIst(state?.lastSeenAt)} (${formatRelative(state?.lastSeenAt)})`}
             />
+            <InfoRow label="Location" value={device.location || "—"} />
             <InfoRow label="Firmware" value={state?.firmwareVersion ?? "—"} />
             <InfoRow label="Mode" value={state?.mode ?? "—"} />
             <InfoRow
@@ -144,6 +167,23 @@ export const DeviceDetailPage = () => {
         )}
       </div>
 
+      {!planned && !state?.lastSeenAt && (
+        <Card title="Waiting for the controller">
+          {canManage ? (
+            <p className="text-sm text-text-primary">
+              <span className="font-mono font-semibold">{device.deviceId}</span> has not connected yet. Set up the
+              controller with the login and topics in the <strong>Broker account</strong> card below. Keep relay
+              simulation ON until the wiring and safety checks are done.
+            </p>
+          ) : (
+            <NextSteps deviceId={device.deviceId} deviceType={device.type} />
+          )}
+        </Card>
+      )}
+
+      {/* Only managers may see the broker account: the query is not made for anyone else. */}
+      {!planned && canManage && <BrokerAccountCard device={device} />}
+
       {!planned && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -157,6 +197,23 @@ export const DeviceDetailPage = () => {
 
           <EventsCard events={events} isLoading={eventsLoading} />
         </>
+      )}
+
+      {editing && (
+        <EditDeviceModal
+          isOpen
+          error={editError}
+          busy={saving}
+          device={device}
+          onClose={() => setEditing(false)}
+          onSubmit={(body) => {
+            setEditError(null);
+            updateDevice({ id: device.id, body })
+              .unwrap()
+              .then(() => setEditing(false))
+              .catch((e: unknown) => setEditError(extractErrorMessage(e, "Could not save the device")));
+          }}
+        />
       )}
     </div>
   );

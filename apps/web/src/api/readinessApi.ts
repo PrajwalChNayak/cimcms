@@ -9,7 +9,7 @@ const schema = apiResponseSchema(deviceReadinessDtoSchema);
 
 export const readinessApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    /** AUTO / EXPERIMENT readiness of one device (path uses the ObjectId, D-8). */
+    /** AUTO / EXPERIMENT readiness of one device (path uses the database id, D-8). */
     getDeviceReadiness: builder.query<DeviceReadinessDto, string>({
       query: (id) => `/devices/${id}/readiness`,
       transformResponse: (raw: unknown) =>

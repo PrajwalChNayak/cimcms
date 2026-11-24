@@ -16,7 +16,7 @@ class FarmService {
     name?: string,
     address?: string,
   ) {
-    return FarmRepository.findAllMongo<Farm>(page, limit, { consumerId, name, address });
+    return FarmRepository.findAll<Farm>(page, limit, { consumerId, name, address });
   }
 
   static async getFarmById(id: string): Promise<Farm> {

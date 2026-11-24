@@ -7,6 +7,7 @@ export default defineConfig({
     // One-off CLI entries so `node dist/src/models/seed.js` works in the runtime image (T4.5).
     "src/models/seed.ts",
     "src/models/seed-admin.ts",
+    "src/models/mqtt-account.ts",
   ],
   format: ["esm"],
   outDir: "dist",

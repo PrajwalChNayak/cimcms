@@ -80,7 +80,7 @@ const humState: DeviceStateDto = {
 };
 
 const led: DeviceListItemDto = {
-  id: "665f00000000000000000001",
+  id: "665f0000-0000-4000-8000-000000000001",
   deviceId: "LED-01",
   name: "LED Controller 1",
   type: "LED_CONTROLLER",
@@ -89,7 +89,7 @@ const led: DeviceListItemDto = {
   state: ledState(),
 };
 const hum: DeviceListItemDto = {
-  id: "665f00000000000000000002",
+  id: "665f0000-0000-4000-8000-000000000002",
   deviceId: "HUM-01",
   name: "Humidifier 1",
   type: "HUMIDIFIER",
@@ -98,7 +98,7 @@ const hum: DeviceListItemDto = {
   state: humState,
 };
 const steam: DeviceListItemDto = {
-  id: "665f00000000000000000003",
+  id: "665f0000-0000-4000-8000-000000000003",
   deviceId: "STEAM-01",
   name: "Steam Generator",
   type: "STEAM_GENERATOR",

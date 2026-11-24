@@ -2,24 +2,28 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// PostgreSQL (owner decision O-1, 2026-11-22). Schema changes go through migrations:
+//   npm run db:migrate -w apps/api   (dev: creates a migration in ./migrations)
+//   npm run db:deploy  -w apps/api   (staging/prod: applies pending migrations)
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  email     String       @unique
-  password  String
-  name      String?
-  status    CommonStatus @default(ACTIVE)
-  roles     UserRole[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
+  password      String
+  name          String?
+  status        CommonStatus   @default(ACTIVE)
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Role {
-  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  id          String           @id @default(uuid()) @db.Uuid
   name        String           @unique
   status      CommonStatus     @default(ACTIVE)
   isSystem    Boolean          @default(false)
@@ -30,7 +34,7 @@ model Role {
 }
 
 model Permission {
-  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  id        String           @id @default(uuid()) @db.Uuid
   name      String           @unique
   status    CommonStatus     @default(ACTIVE)
   isSystem  Boolean          @default(false)
@@ -41,26 +45,32 @@ model Permission {
 
 // Junction model for User <-> Role
 model UserRole {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  roleId    String   @db.ObjectId
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  role      Role     @relation(fields: [roleId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
 }
 
 // Junction model for Role <-> Permission
 model RolePermission {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  roleId       String     @db.ObjectId
-  permissionId String     @db.ObjectId
+  id           String     @id @default(uuid()) @db.Uuid
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
   createdAt    DateTime   @default(now())
-  role         Role       @relation(fields: [roleId], references: [id])
-  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
 }
 
 model Consumer {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id              String    @id @default(uuid()) @db.Uuid
   email           String    @unique
   password        String
   name            String?
@@ -74,38 +84,45 @@ model Consumer {
 }
 
 model Farm {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @id @default(uuid()) @db.Uuid
   name       String
   address    String?
-  consumerId String   @db.ObjectId
+  consumerId String   @db.Uuid
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   consumer   Consumer @relation(fields: [consumerId], references: [id])
   devices    Device[]
+
+  @@index([consumerId])
 }
 
 model Device {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  id         String    @id @default(uuid()) @db.Uuid
   name       String?
   type       String?
   location   String?
   deviceId   String    @unique
   deviceType String
-  consumerId String?   @db.ObjectId
-  farmId     String?   @db.ObjectId
+  consumerId String?   @db.Uuid
+  farmId     String?   @db.Uuid
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  consumer   Consumer? @relation(fields: [consumerId], references: [id])
-  farm       Farm?     @relation(fields: [farmId], references: [id])
+  consumer   Consumer? @relation(fields: [consumerId], references: [id], onDelete: SetNull)
+  farm       Farm?     @relation(fields: [farmId], references: [id], onDelete: SetNull)
+
+  @@index([consumerId])
+  @@index([farmId])
 }
 
 model MasterTypeConstant {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @default(uuid()) @db.Uuid
   type      String
   value     String
   info      Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([type])
 }
 
 enum CommonStatus {
@@ -116,6 +133,8 @@ enum CommonStatus {
 }
 
 // ─── CIMCMS device platform (plan section 6) ─────────────────────────────────
+// Operational tables reference devices by the physical `deviceId` (D-8) without a foreign key,
+// so history (commands, events, audit) survives when a device record is deleted.
 enum Liveness {
   UNKNOWN
   ONLINE
@@ -137,7 +156,7 @@ enum CommandStatus {
 }
 
 model DeviceStatus {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id              String    @id @default(uuid()) @db.Uuid
   deviceId        String    @unique
   type            String
   liveness        Liveness  @default(UNKNOWN)
@@ -158,25 +177,40 @@ model DeviceStatus {
   autoReady       Boolean?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([liveness, lastSeenAt])
 }
 
-type CommandAck {
-  result        String
-  reason        String?
-  reportedState String?
-  receivedAt    DateTime
-  deviceTs      DateTime?
+// Telemetry history (was a MongoDB time-series collection). Retention: RetentionJob.
+model Telemetry {
+  id             BigInt    @id @default(autoincrement())
+  ts             DateTime
+  deviceId       String
+  type           String
+  mode           String?
+  simulationMode Boolean?
+  relayStates    Boolean[]
+  relayOnCount   Int?
+  rssiDbm        Int?
+  wifiConnected  Boolean?
+  mqttConnected  Boolean?
+  rtcValid       Boolean?
+  seq            Int?
+  bootId         String?
+
+  @@index([deviceId, ts])
+  @@index([ts])
 }
 
 model Command {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  id             String        @id @default(uuid()) @db.Uuid
   commandId      String        @unique // UUID on the wire
   idempotencyKey String        @unique // client header value, or = commandId
   deviceId       String
   action         String
   params         Json
   source         String // web | schedule | experiment | system
-  issuedById     String?       @db.ObjectId
+  issuedById     String?       @db.Uuid
   issuedByEmail  String?
   requestId      String?
   status         CommandStatus @default(PENDING)
@@ -193,10 +227,26 @@ model Command {
 
   @@index([deviceId, issuedAt])
   @@index([status, expiresAt])
+  @@index([deviceId, status, completedAt])
+  @@index([issuedAt])
+}
+
+// Device acknowledgements of a command, in arrival order (id).
+model CommandAck {
+  id            Int       @id @default(autoincrement())
+  commandId     String
+  result        String
+  reason        String?
+  reportedState String?
+  receivedAt    DateTime
+  deviceTs      DateTime?
+  command       Command   @relation(fields: [commandId], references: [commandId], onDelete: Cascade)
+
+  @@index([commandId])
 }
 
 model DeviceEvent {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  id         String    @id @default(uuid()) @db.Uuid
   deviceId   String
   type       String // DEVICE_EVENT_TYPES or BACKEND_EVENT_TYPES
   origin     String // DEVICE | BACKEND
@@ -206,10 +256,11 @@ model DeviceEvent {
 
   @@index([deviceId, receivedAt])
   @@index([type, receivedAt])
+  @@index([receivedAt])
 }
 
 model RelayStateChange {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @id @default(uuid()) @db.Uuid
   deviceId   String
   relay      Int
   state      Boolean
@@ -219,11 +270,12 @@ model RelayStateChange {
   at         DateTime
 
   @@index([deviceId, relay, at])
+  @@index([at])
 }
 
 model AuditLog {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  actorId    String?  @db.ObjectId
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
   actorEmail String?
   actorType  String // USER | SYSTEM
   action     String // LOGIN_SUCCEEDED, LOGIN_FAILED, COMMAND_SUBMITTED, ...
@@ -240,8 +292,8 @@ model AuditLog {
 }
 
 model RefreshToken {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String    @db.ObjectId
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
   tokenHash      String    @unique // sha256 hex of the opaque cookie value
   familyId       String
   expiresAt      DateTime
@@ -250,9 +302,11 @@ model RefreshToken {
   userAgent      String?
   ip             String?
   createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([familyId])
+  @@index([expiresAt])
 }
 
 // ─── CIMCMS Phase 5: rooms, schedules, device config, experiments (plan T5.1-T5.4) ───
@@ -283,61 +337,67 @@ enum ExperimentStatus {
 }
 
 model Room {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
-  farmId    String?    @db.ObjectId
-  code      String     @unique
+  id        String                  @id @default(uuid()) @db.Uuid
+  farmId    String?                 @db.Uuid
+  code      String                  @unique
   name      String
-  status    RoomStatus @default(ACTIVE)
+  status    RoomStatus              @default(ACTIVE)
   notes     String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  channels  RoomChannelAssignment[]
+  schedules Schedule[]
 }
 
 // The unique index prevents one relay in two rooms (FRS 9.4).
 model RoomChannelAssignment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  roomId    String   @db.ObjectId
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @db.Uuid
   deviceId  String
   relay     Int
   label     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@unique([deviceId, relay])
   @@index([roomId])
 }
 
 model Schedule {
-  id               String         @id @default(auto()) @map("_id") @db.ObjectId
-  roomId           String         @db.ObjectId
+  id               String            @id @default(uuid()) @db.Uuid
+  roomId           String            @db.Uuid
   name             String
-  status           ScheduleStatus @default(DRAFT)
-  latestVersion    Int            @default(1)
+  status           ScheduleStatus    @default(DRAFT)
+  latestVersion    Int               @default(1)
   publishedVersion Int?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  room             Room              @relation(fields: [roomId], references: [id])
+  versions         ScheduleVersion[]
 
   @@index([roomId])
 }
 
 // Immutable once publishedAt is set. effectiveFrom/effectiveTo are IST calendar days (YYYY-MM-DD).
 model ScheduleVersion {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  scheduleId     String    @db.ObjectId
+  id             String    @id @default(uuid()) @db.Uuid
+  scheduleId     String    @db.Uuid
   version        Int
   rules          Json
   effectiveFrom  String
   effectiveTo    String?
-  createdById    String?   @db.ObjectId
+  createdById    String?   @db.Uuid
   createdByEmail String?
   publishedAt    DateTime?
   createdAt      DateTime  @default(now())
+  schedule       Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@unique([scheduleId, version])
 }
 
 model DeviceConfig {
-  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  id             String             @id @default(uuid()) @db.Uuid
   deviceId       String
   configVersion  Int
   payload        Json
@@ -352,27 +412,62 @@ model DeviceConfig {
 }
 
 model Experiment {
-  id             String           @id @default(auto()) @map("_id") @db.ObjectId
-  code           String           @unique
+  id             String                 @id @default(uuid()) @db.Uuid
+  code           String                 @unique
   title          String
   description    String?
-  status         ExperimentStatus @default(DRAFT)
+  status         ExperimentStatus       @default(DRAFT)
   startsAt       DateTime
   endsAt         DateTime
-  createdById    String?          @db.ObjectId
+  createdById    String?                @db.Uuid
   createdByEmail String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  assignments    ExperimentAssignment[]
+
+  @@index([status])
 }
 
 model ExperimentAssignment {
-  id           String @id @default(auto()) @map("_id") @db.ObjectId
-  experimentId String @db.ObjectId
+  id           String     @id @default(uuid()) @db.Uuid
+  experimentId String     @db.Uuid
   groupLabel   String
   deviceId     String
   relay        Int
   windows      Json
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
 
   @@index([experimentId])
   @@index([deviceId, relay])
+}
+
+// ─── CIMCMS MQTT broker (apps/broker) ────────────────────────────────────────
+// Logins of our own broker. The API writes them (Add device, Reset password, CLI);
+// the broker reads them on every connect, so changes apply at once.
+enum MqttAccountKind {
+  DEVICE // one device: only its own cimcms/<type>/<deviceId>/... topics; client ID must equal username
+  SERVICE // the CIMCMS API: device state topics in, command/config out
+  LEGACY // existing clients such as the Humidifier's mqttuser: full access, as before
+}
+
+model MqttAccount {
+  id            String          @id @default(uuid()) @db.Uuid
+  username      String          @unique
+  passwordHash  String // argon2id; the password itself is never stored
+  kind          MqttAccountKind
+  deviceId      String?         @unique
+  deviceType    String?
+  enabled       Boolean         @default(true)
+  note          String?
+  createdAt     DateTime        @default(now())
+  passwordSetAt DateTime
+  updatedAt     DateTime        @updatedAt
+}
+
+// Retained messages, so they survive a broker restart (status, LWT, device config).
+model MqttRetained {
+  topic     String   @id
+  payload   Bytes
+  qos       Int
+  updatedAt DateTime @updatedAt
 }

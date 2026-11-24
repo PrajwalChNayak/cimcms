@@ -32,7 +32,7 @@ const ALL = [1, 2, 3, 4, 5, 6, 7];
 
 // TODO(owner-decision O-9): fixture room names only.
 const room = (over: Partial<RoomDto> = {}): RoomDto => ({
-  id: "665f0000000000000000000a",
+  id: "665f0000-0000-4000-8000-00000000000a",
   farmId: null,
   code: "TRA",
   name: "Test Room A",
@@ -43,7 +43,7 @@ const room = (over: Partial<RoomDto> = {}): RoomDto => ({
   updatedAt: T0,
   ...over,
 });
-const roomB = room({ id: "665f0000000000000000000b", code: "TRB", name: "Test Room B", channelCount: 0 });
+const roomB = room({ id: "665f0000-0000-4000-8000-00000000000b", code: "TRB", name: "Test Room B", channelCount: 0 });
 
 const version = (over: Partial<ScheduleVersionDto> = {}): ScheduleVersionDto => ({
   version: 1,
@@ -57,7 +57,7 @@ const version = (over: Partial<ScheduleVersionDto> = {}): ScheduleVersionDto => 
 });
 
 const schedule = (over: Partial<ScheduleDto> = {}): ScheduleDto => ({
-  id: "665f000000000000000000c1",
+  id: "665f0000-0000-4000-8000-0000000000c1",
   roomId: room().id,
   roomCode: "TRA",
   roomName: "Test Room A",

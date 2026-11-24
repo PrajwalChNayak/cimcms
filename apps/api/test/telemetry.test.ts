@@ -1,20 +1,14 @@
 import { afterAll, describe, expect, it } from "vitest";
 import prisma from "@models/prisma.client";
-import { initTimeseries } from "@models/init/timeseries";
 import TelemetryRepository from "@repositories/telemetry.repository";
 
 afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("telemetry time-series", () => {
-  it("initTimeseries can be called twice", async () => {
-    await initTimeseries();
-    await expect(initTimeseries()).resolves.toBeUndefined();
-  });
-
+describe("telemetry table", () => {
   it("inserts and reads back 3 points in time order", async () => {
-    await initTimeseries();
+    await prisma.telemetry.deleteMany({ where: { deviceId: { in: ["LED-TS-1", "LED-OTHER", "LED-BIG"] } } });
     const base = Date.UTC(2026, 10, 20, 12, 0, 0);
     // inserted out of order on purpose
     const times = [2, 0, 1].map((m) => new Date(base + m * 60_000));
@@ -50,7 +44,7 @@ describe("telemetry time-series", () => {
     expect(ranged).toHaveLength(1);
   });
 
-  it("returns more than 101 rows when limit is larger (batchSize = limit)", async () => {
+  it("returns more than 101 rows when limit is larger", async () => {
     const base = Date.UTC(2026, 10, 21, 0, 0, 0);
     await TelemetryRepository.insertMany(
       Array.from({ length: 150 }, (_, i) => ({
@@ -61,5 +55,17 @@ describe("telemetry time-series", () => {
     );
     const rows = await TelemetryRepository.find({ deviceId: "LED-BIG", limit: 150 });
     expect(rows).toHaveLength(150);
+  });
+
+  it("deleteOlderThan removes only older rows", async () => {
+    const base = Date.UTC(2026, 10, 22, 0, 0, 0);
+    await TelemetryRepository.insertMany([
+      { ts: new Date(base - 1000), deviceId: "LED-RET", type: "LED_CONTROLLER" },
+      { ts: new Date(base + 1000), deviceId: "LED-RET", type: "LED_CONTROLLER" },
+    ]);
+    await TelemetryRepository.deleteOlderThan(new Date(base));
+    const left = await TelemetryRepository.find({ deviceId: "LED-RET" });
+    expect(left.map((p) => p.ts.getTime())).toEqual([base + 1000]);
+    await prisma.telemetry.deleteMany({ where: { deviceId: "LED-RET" } });
   });
 });

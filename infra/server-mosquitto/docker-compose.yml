@@ -1,0 +1,29 @@
+# SUPERSEDED (D26, 2026-11-24) by infra/server-broker (own CIMCMS broker). Kept for rollback only.
+# CIMCMS broker on the server (148.135.137.198). Same layout as before:
+#   ./config -> /mosquitto/config   (mosquitto.conf, your existing password file, acl)
+#   ./data   -> /mosquitto/data     (persistence + dynamic-security.json)
+#   ./log    -> /mosquitto/log
+# Changes compared with the old file: health check and log rotation. Ports are unchanged,
+# so the Humidifier and other clients keep using 1883.
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      # - "8883:8883"   # enable together with the TLS listener in config/mosquitto.conf
+    volumes:
+      - ./config:/mosquitto/config
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "pidof mosquitto >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

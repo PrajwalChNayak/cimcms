@@ -51,10 +51,10 @@ describe("health", () => {
     expect((await request(app).get(`/${process.env.MAIN_ROUTE}/health/live`)).status).toBe(404);
   });
 
-  it("GET /health/ready is 200 when Mongo and the broker are up, with no extra details", async () => {
+  it("GET /health/ready is 200 when the database and the broker are up, with no extra details", async () => {
     const res = await request(app).get("/health/ready");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "ok", mongo: "up", mqtt: "up" });
+    expect(res.body).toEqual({ status: "ok", database: "up", mqtt: "up" });
   });
 });
 
@@ -133,7 +133,7 @@ describe("RetentionJob", () => {
     expect(next("2026-11-21T23:00:00Z")).toBe("2026-11-22T20:30:00.000Z");
   });
 
-  it("deletes old events, relay changes and long-expired refresh tokens; keeps commands and audit rows", async () => {
+  it("deletes old telemetry, events, relay changes and long-expired refresh tokens; keeps commands and audit rows", async () => {
     const now = new Date();
     const old = new Date(now.getTime() - (RETENTION_DAYS + 1) * DAY);
     const recent = new Date(now.getTime() - (RETENTION_DAYS - 1) * DAY);
@@ -149,7 +149,16 @@ describe("RetentionJob", () => {
         { deviceId: LED.deviceId, relay: 2, state: true, source: "COMMAND", simulation: true, at: recent },
       ],
     });
-    const uid = "aaaaaaaaaaaaaaaaaaaaaaaa";
+    await prisma.telemetry.createMany({
+      data: [
+        { deviceId: "LED-RET-JOB", type: "LED_CONTROLLER", ts: old },
+        { deviceId: "LED-RET-JOB", type: "LED_CONTROLLER", ts: recent },
+      ],
+    });
+    const user = await prisma.user.create({
+      data: { email: `ret-${now.getTime()}@test.local`, password: "x" },
+    });
+    const uid = user.id;
     const tok = (n: string, expiresAt: Date) => ({
       userId: uid, tokenHash: `ret-${n}-${now.getTime()}`, familyId: "ret-fam", expiresAt,
     });
@@ -171,7 +180,8 @@ describe("RetentionJob", () => {
     });
 
     const res = await RetentionJob.runOnce(now);
-    expect(res).toEqual({ deviceEvents: 1, relayStateChanges: 1, refreshTokens: 1 });
+    expect(res).toEqual({ telemetry: 1, deviceEvents: 1, relayStateChanges: 1, refreshTokens: 1 });
+    expect((await prisma.telemetry.findMany({ where: { deviceId: "LED-RET-JOB" } })).map((t) => t.ts.getTime())).toEqual([recent.getTime()]);
 
     expect((await prisma.deviceEvent.findMany({ where: { deviceId: LED.deviceId } })).map((e) => e.type)).toEqual(["OFFLINE"]);
     expect((await prisma.relayStateChange.findMany({ where: { deviceId: LED.deviceId } })).map((r) => r.relay)).toEqual([2]);
@@ -181,12 +191,14 @@ describe("RetentionJob", () => {
     expect(await prisma.auditLog.findUnique({ where: { id: aud.id } })).not.toBeNull();
 
     await prisma.refreshToken.deleteMany({ where: { familyId: "ret-fam" } });
+    await prisma.user.delete({ where: { id: uid } });
+    await prisma.telemetry.deleteMany({ where: { deviceId: "LED-RET-JOB" } });
     await prisma.auditLog.deleteMany({ where: { entity: "RetTest" } });
   });
 
   it("sleeps until the next run, then repeats every 24 h (fake timers)", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
-    const spy = vi.spyOn(RetentionJob, "runOnce").mockResolvedValue({ deviceEvents: 0, relayStateChanges: 0, refreshTokens: 0 });
+    const spy = vi.spyOn(RetentionJob, "runOnce").mockResolvedValue({ telemetry: 0, deviceEvents: 0, relayStateChanges: 0, refreshTokens: 0 });
     const delay = RetentionJob.nextRunAfter(new Date()).getTime() - Date.now();
     RetentionJob.start();
     await vi.advanceTimersByTimeAsync(delay - 1000);
@@ -220,7 +232,7 @@ describe("GET /health/ready with the broker stopped", () => {
     await waitFor(() => !MqttClient.isConnected(), 5000, "client notices broker is gone");
     const res = await request(app).get("/health/ready");
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({ status: "unavailable", mongo: "up", mqtt: "down" });
+    expect(res.body).toEqual({ status: "unavailable", database: "up", mqtt: "down" });
     // liveness is unaffected
     expect((await request(app).get("/health/live")).status).toBe(200);
     // rig.stop() closes the broker again: make that a no-op

@@ -1,6 +1,5 @@
 import type { SocketEnvelope } from "@cimcms/contracts";
 import { startSimulator, type Simulator, type SimulatorOptions } from "@cimcms/device-sim";
-import { initTimeseries } from "@models/init/timeseries";
 import prisma from "@models/prisma.client";
 import { startMqtt } from "@/mqtt";
 import MqttClient from "@/mqtt/mqtt.client";
@@ -48,7 +47,6 @@ const CLIENT_ID = "test-backend";
  */
 export async function startRig(devices: TestDevice[] = [LED]): Promise<Rig> {
   const broker = await startTestBroker();
-  await initTimeseries();
   const ids = devices.map((d) => d.deviceId);
   await prisma.device.deleteMany({ where: { deviceId: { in: ids } } });
   await prisma.device.createMany({ data: devices });

@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   auditLogDtoSchema,
   deviceEventDtoSchema,
@@ -9,7 +9,6 @@ import {
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { initTimeseries } from "@models/init/timeseries";
 import prisma from "@models/prisma.client";
 import TelemetryRepository from "@repositories/telemetry.repository";
 import { getTestApp } from "./helpers/app";
@@ -66,7 +65,6 @@ const audit = (n: number) => ({
 });
 
 beforeAll(async () => {
-  await initTimeseries();
   await prisma.device.deleteMany({ where: { deviceId: { in: [NEW_ID, IDLE_ID, HUM_ID, OLD_ID] } } });
   const mk = (deviceId: string, deviceType: string, name?: string) =>
     prisma.device.create({ data: { deviceId, deviceType, ...(name && { name }) } });
@@ -149,10 +147,10 @@ afterAll(async () => {
 describe("permission and validation (all read routes)", () => {
   const paths = [
     "/devices",
-    "/devices/aaaaaaaaaaaaaaaaaaaaaaaa/state",
-    "/devices/aaaaaaaaaaaaaaaaaaaaaaaa/telemetry",
-    "/devices/aaaaaaaaaaaaaaaaaaaaaaaa/events",
-    "/devices/aaaaaaaaaaaaaaaaaaaaaaaa/relay-changes",
+    "/devices/00000000-0000-4000-8000-000000000000/state",
+    "/devices/00000000-0000-4000-8000-000000000000/telemetry",
+    "/devices/00000000-0000-4000-8000-000000000000/events",
+    "/devices/00000000-0000-4000-8000-000000000000/relay-changes",
     "/audit",
   ];
 
@@ -191,7 +189,7 @@ describe("permission and validation (all read routes)", () => {
   });
 
   it("unknown device id gives 404 DEVICE_NOT_FOUND on every device route", async () => {
-    const unknown = randomBytes(12).toString("hex");
+    const unknown = randomUUID();
     for (const leaf of ["state", "telemetry", "events", "relay-changes"]) {
       const res = await get(`/devices/${unknown}/${leaf}`);
       expect(res.status, leaf).toBe(404);
@@ -336,7 +334,7 @@ describe("GET /audit", () => {
     expect(odd.result.data).toHaveLength(3);
     const mine = paged(auditLogDtoSchema).parse((await get(`/audit?entity=RdTest&actorId=${viewer.userId}`)).body);
     expect(mine.result.data).toHaveLength(5);
-    const other = paged(auditLogDtoSchema).parse((await get(`/audit?entity=RdTest&actorId=${randomBytes(12).toString("hex")}`)).body);
+    const other = paged(auditLogDtoSchema).parse((await get(`/audit?entity=RdTest&actorId=${randomUUID()}`)).body);
     expect(other.result.data).toHaveLength(0);
 
     const from = new Date(t0 + 2500).toISOString();

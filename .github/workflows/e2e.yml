@@ -1,7 +1,9 @@
 name: E2E (manual)
 
-# Manual trigger only: runs the Playwright acceptance tests (plan T3.8) against the dev
-# Docker services (Mongo replica set + Mosquitto) with random, job-local broker credentials.
+# Manual trigger only: runs the Playwright acceptance tests (plan T3.8). The test setup starts the
+# own MQTT broker (apps/broker) and the API itself against a throwaway PostgreSQL service and
+# creates the broker logins (MqttAccount) with random passwords in apps/web/e2e/.env.e2e
+# (job-local, never committed). No Mosquitto is needed.
 on:
   workflow_dispatch:
 
@@ -9,6 +11,21 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway CI database container, not a secret (same value as the e2e default).
+          POSTGRES_USER: cimcms
+          POSTGRES_PASSWORD: cimcms_dev_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U cimcms -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,34 +36,15 @@ jobs:
       - run: npm run build:contracts
       - run: npm run gp -w apps/api
 
-      - name: Create job-local broker accounts (random passwords, never committed)
-        run: |
-          touch infra/dev/mosquitto/passwd
-          chmod 666 infra/dev/mosquitto/passwd
-          BACKEND_PW="$(openssl rand -base64 24 | tr -d '/+=')"
-          LED_PW="$(openssl rand -base64 24 | tr -d '/+=')"
-          echo "::add-mask::$BACKEND_PW"
-          echo "::add-mask::$LED_PW"
-          docker compose -f infra/dev/docker-compose.yml run --rm --no-deps mosquitto mosquitto_passwd -b /mosquitto/config/passwd cimcms-backend "$BACKEND_PW"
-          docker compose -f infra/dev/docker-compose.yml run --rm --no-deps mosquitto mosquitto_passwd -b /mosquitto/config/passwd LED-01 "$LED_PW"
-          {
-            echo "MQTT_BACKEND_USER=cimcms-backend"
-            echo "MQTT_BACKEND_PASSWORD=$BACKEND_PW"
-            echo "MQTT_LED01_USER=LED-01"
-            echo "MQTT_LED01_PASSWORD=$LED_PW"
-          } > infra/dev/.dev-credentials.local
-
-      - name: Start dev infrastructure
-        run: |
-          docker compose -f infra/dev/docker-compose.yml up -d --wait
-          docker compose -f infra/dev/docker-compose.yml ps
-
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
 
-      # e2e/.env.e2e is generated with random passwords by the test setup when missing.
+      # e2e/.env.e2e (user + broker passwords) is generated with random values when missing.
       - run: npx playwright test
         working-directory: apps/web
+        env:
+          E2E_PG_HOST: localhost
+          E2E_PG_PORT: "5433"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -56,6 +54,3 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
-
-      - if: always()
-        run: docker compose -f infra/dev/docker-compose.yml down -v

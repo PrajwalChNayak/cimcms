@@ -6,6 +6,8 @@ const KINDS: readonly string[] = ['status', 'telemetry', 'ack', 'event', 'comman
 const DEVICE_ID_RE = /^[A-Za-z0-9-]{3,40}$/;
 
 export const BACKEND_STATUS_TOPIC = `${TOPIC_ROOT}/backend/status`;
+/** API -> broker: `{"username":"<u>"}` after a broker account changed; the broker drops its live sessions. */
+export const BROKER_ACCOUNT_CHANGED_TOPIC = `${TOPIC_ROOT}/broker/account-changed`;
 
 export function topicFor(type: DeviceType, deviceId: string, kind: TopicKind): string {
   return `${TOPIC_ROOT}/${DEVICE_TYPES[type].topicSegment}/${deviceId}/${kind}`;

@@ -38,6 +38,8 @@ const isUniqueViolation = (e: unknown): boolean =>
 
 /** Statuses in which the experiment block is part of a device config. */
 const ACTIVE: readonly ExperimentStatus[] = ["READY", "RUNNING", "PAUSED"];
+/** The reconcile sweep leaves a device alone this long after its last SET_MODE command. */
+const RECONCILE_QUIET_MS = 30_000;
 
 const normalise = (rules: ScheduleRuleDto[]): ScheduleRuleDto[] =>
   rules.map((r) => ({ days: [...r.days].sort((a, b) => a - b), on: r.on, off: r.off }));
@@ -381,26 +383,23 @@ export default class ExperimentService {
     const devices = ExperimentService.deviceIds(assignments);
     if (devices.length === 0) throw err(400, "VALIDATION_FAILED", "The experiment has no relays");
 
-    // One active experiment per device.
-    const others = await prisma.experimentAssignment.findMany({
-      where: { deviceId: { in: devices }, experimentId: { not: id } },
-    });
-    if (others.length > 0) {
-      const busy = await prisma.experiment.findMany({
-        where: { id: { in: [...new Set(others.map((o) => o.experimentId))] }, status: { in: [...ACTIVE] } },
-      });
-      if (busy.length > 0) {
-        const taken = others.filter((o) => busy.some((b) => b.id === o.experimentId));
-        throw err(409, "EXPERIMENT_CONFLICT", `A device is already used by experiment ${busy[0]?.code ?? "?"}`, {
-          experiments: busy.map((b) => b.code),
-          devices: [...new Set(taken.map((t) => t.deviceId))],
-        });
-      }
-    }
+    // One active experiment per device: checked first (clear error), and again under a
+    // per-device lock in the same transaction as DRAFT -> READY, so two experiments cannot
+    // both claim a device.
+    await ExperimentService.assertNoConflict(prisma, id, devices);
     if (!MqttClient.isConnected()) throw err(503, "MQTT_UNAVAILABLE", "Message broker is not connected");
     for (const deviceId of devices) await ConfigService.prepare(deviceId, { experimentPreview: id });
 
-    await ExperimentService.transition(id, ["DRAFT"], "READY");
+    await prisma.$transaction(async (tx) => {
+      for (const deviceId of [...devices].sort()) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"experiment:" + deviceId}))`;
+      }
+      await ExperimentService.assertNoConflict(tx, id, devices);
+      const { count } = await tx.experiment.updateMany({ where: { id, status: "DRAFT" }, data: { status: "READY" } });
+      if (count === 0) {
+        throw err(409, "EXPERIMENT_INVALID_STATE", "The experiment is no longer a DRAFT", { allowed: ["DRAFT"] });
+      }
+    });
     const configs = await ExperimentService.sendConfigs(subject, devices, meta);
     await ExperimentService.audit(subject, meta, "EXPERIMENT_READY", exp, { devices });
     ExperimentService.emit(exp, "READY", devices);
@@ -474,7 +473,9 @@ export default class ExperimentService {
     await ExperimentService.transition(id, ["READY"], "RUNNING");
     const { commandIds, warnings } = await ExperimentService.sendModes(subject, devices, "EXPERIMENT", meta);
     if (warnings.length > 0) {
-      // Do not report RUNNING when a device did not get its command.
+      // Do not report RUNNING when a device did not get its command, and do not leave the
+      // devices that did switch parked in EXPERIMENT mode (relay commands are blocked there).
+      await ExperimentService.sendModes(subject, ExperimentService.switched(devices, warnings), "MANUAL", meta);
       await prisma.experiment.updateMany({ where: { id, status: "RUNNING" }, data: { status: "READY" } });
       throw err(409, "EXPERIMENT_NOT_CONFIGURED", "A device could not be switched to EXPERIMENT mode", {
         devices: warnings,
@@ -493,9 +494,24 @@ export default class ExperimentService {
     meta: AuditMeta = {},
   ): Promise<ExperimentActionResultDto> {
     const { exp, assignments } = await ExperimentService.load(id);
-    await ExperimentService.transition(id, ["RUNNING"], "PAUSED");
+    if (exp.status !== "RUNNING") {
+      throw err(409, "EXPERIMENT_INVALID_STATE", `Only a RUNNING experiment can be paused (it is ${exp.status})`, {
+        status: exp.status,
+      });
+    }
     const devices = ExperimentService.deviceIds(assignments);
+    // All or nothing: an offline device would keep running the experiment while the UI says PAUSED.
+    await ExperimentService.requireOnline(devices);
+    await ExperimentService.transition(id, ["RUNNING"], "PAUSED");
     const { commandIds, warnings } = await ExperimentService.sendModes(subject, devices, "MAINTENANCE", meta);
+    if (warnings.length > 0) {
+      await ExperimentService.sendModes(subject, ExperimentService.switched(devices, warnings), "EXPERIMENT", meta);
+      await prisma.experiment.updateMany({ where: { id, status: "PAUSED" }, data: { status: "RUNNING" } });
+      throw err(409, "EXPERIMENT_MODE_SWITCH_FAILED", "A device could not be switched to MAINTENANCE mode", {
+        devices: warnings,
+        commandIds,
+      });
+    }
     await ExperimentService.audit(subject, meta, "EXPERIMENT_PAUSED", exp, { devices, commandIds, warnings });
     ExperimentService.emit(exp, "PAUSED", devices);
     return { experiment: await ExperimentService.dto(id), configs: [], commandIds, warnings };
@@ -508,10 +524,24 @@ export default class ExperimentService {
     meta: AuditMeta = {},
   ): Promise<ExperimentActionResultDto> {
     const { exp, assignments } = await ExperimentService.load(id);
+    if (exp.status !== "PAUSED") {
+      throw err(409, "EXPERIMENT_INVALID_STATE", `Only a PAUSED experiment can be resumed (it is ${exp.status})`, {
+        status: exp.status,
+      });
+    }
     if (exp.endsAt.getTime() <= Date.now()) throw err(400, "VALIDATION_FAILED", "The experiment period has already ended");
-    await ExperimentService.transition(id, ["PAUSED"], "RUNNING");
     const devices = ExperimentService.deviceIds(assignments);
+    await ExperimentService.requireOnline(devices);
+    await ExperimentService.transition(id, ["PAUSED"], "RUNNING");
     const { commandIds, warnings } = await ExperimentService.sendModes(subject, devices, "EXPERIMENT", meta);
+    if (warnings.length > 0) {
+      await ExperimentService.sendModes(subject, ExperimentService.switched(devices, warnings), "MAINTENANCE", meta);
+      await prisma.experiment.updateMany({ where: { id, status: "RUNNING" }, data: { status: "PAUSED" } });
+      throw err(409, "EXPERIMENT_MODE_SWITCH_FAILED", "A device could not be switched to EXPERIMENT mode", {
+        devices: warnings,
+        commandIds,
+      });
+    }
     await ExperimentService.audit(subject, meta, "EXPERIMENT_RESUMED", exp, { devices, commandIds, warnings });
     ExperimentService.emit(exp, "RUNNING", devices);
     return { experiment: await ExperimentService.dto(id), configs: [], commandIds, warnings };
@@ -609,6 +639,46 @@ export default class ExperimentService {
     return configs;
   }
 
+  /** 409 EXPERIMENT_CONFLICT when another READY/RUNNING/PAUSED experiment uses one of the devices. */
+  private static async assertNoConflict(
+    db: Pick<Prisma.TransactionClient, "experiment" | "experimentAssignment">,
+    id: string,
+    devices: string[],
+  ): Promise<void> {
+    const others = await db.experimentAssignment.findMany({
+      where: { deviceId: { in: devices }, experimentId: { not: id } },
+    });
+    if (others.length === 0) return;
+    const busy = await db.experiment.findMany({
+      where: { id: { in: [...new Set(others.map((o) => o.experimentId))] }, status: { in: [...ACTIVE] } },
+    });
+    if (busy.length === 0) return;
+    const taken = others.filter((o) => busy.some((b) => b.id === o.experimentId));
+    throw err(409, "EXPERIMENT_CONFLICT", `A device is already used by experiment ${busy[0]?.code ?? "?"}`, {
+      experiments: busy.map((b) => b.code),
+      devices: [...new Set(taken.map((t) => t.deviceId))],
+    });
+  }
+
+  /** Devices that got their command (not in `warnings`). */
+  private static switched(devices: string[], warnings: ExperimentWarningDto[]): string[] {
+    const failed = new Set(warnings.map((w) => w.deviceId));
+    return devices.filter((d) => !failed.has(d));
+  }
+
+  /** 409 DEVICE_OFFLINE / DEVICE_STALE listing every device that is not ONLINE. */
+  private static async requireOnline(devices: string[]): Promise<void> {
+    const notOnline: { deviceId: string; reasons: string[] }[] = [];
+    for (const deviceId of devices) {
+      const state = await DeviceStateService.get(deviceId);
+      if (!state || state.liveness === "OFFLINE") notOnline.push({ deviceId, reasons: ["DEVICE_OFFLINE"] });
+      else if (state.liveness !== "ONLINE") notOnline.push({ deviceId, reasons: ["DEVICE_STALE"] });
+    }
+    if (notOnline.length > 0) {
+      throw err(409, "DEVICE_OFFLINE", "Not every device of the experiment is online", { devices: notOnline });
+    }
+  }
+
   /** SET_MODE (source `experiment`) to every device; a device that refuses becomes a warning. */
   private static async sendModes(
     subject: CommandSubject,
@@ -640,6 +710,59 @@ export default class ExperimentService {
       }
     }
     return { commandIds, warnings };
+  }
+
+  /**
+   * Safety net for stop/complete while a device was offline (it keeps EXPERIMENT mode and
+   * blocks manual relay commands): ONLINE devices in EXPERIMENT mode that no READY, RUNNING
+   * or PAUSED experiment uses get SET_MODE MANUAL (source `system`). Skips a device with a
+   * SET_MODE command in flight or finished in the last RECONCILE_QUIET_MS (its snapshot may
+   * be behind). Called by the experiment sweeper. Returns the devices that got a command.
+   */
+  static async reconcileModes(now: Date = new Date()): Promise<string[]> {
+    if (!MqttClient.isConnected()) return [];
+    const parked = await prisma.deviceStatus.findMany({
+      where: { mode: "EXPERIMENT", liveness: "ONLINE" },
+      select: { deviceId: true },
+    });
+    if (parked.length === 0) return [];
+    const ids = parked.map((p) => p.deviceId);
+    const owned = await prisma.experimentAssignment.findMany({
+      where: { deviceId: { in: ids }, experiment: { status: { in: [...ACTIVE] } } },
+      select: { deviceId: true },
+    });
+    const covered = new Set(owned.map((o) => o.deviceId));
+    const quietSince = new Date(now.getTime() - RECONCILE_QUIET_MS);
+
+    const sent: string[] = [];
+    for (const deviceId of ids) {
+      if (covered.has(deviceId)) continue;
+      const recent = await prisma.command.count({
+        where: {
+          deviceId,
+          action: "SET_MODE",
+          OR: [
+            { status: { in: ["PENDING", "PUBLISHED", "ACCEPTED"] } },
+            { completedAt: { gte: quietSince } },
+          ],
+        },
+      });
+      if (recent > 0) continue;
+      try {
+        const cmd = await CommandService.submitSystem(deviceId, { action: "SET_MODE", mode: "MANUAL" });
+        sent.push(deviceId);
+        await AuditService.record({
+          action: "EXPERIMENT_MODE_RECONCILED",
+          entity: "Command",
+          entityId: cmd.commandId,
+          actorType: "SYSTEM",
+          data: { deviceId, from: "EXPERIMENT", to: "MANUAL", reason: "NO_ACTIVE_EXPERIMENT" },
+        });
+      } catch (e) {
+        logger.warn("experiment mode reconcile failed", { deviceId, error: String(e) });
+      }
+    }
+    return sent;
   }
 
   /** Experiments whose period is over and that still hold devices. */

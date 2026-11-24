@@ -108,7 +108,8 @@ export function attachRealtime(server: http.Server): Server {
       socket.data.subject = subject;
       if (exp !== undefined) {
         // The client reconnects with a fresh token after the old one expires.
-        const ms = Math.max(exp * 1000 - Date.now(), 0);
+        // setTimeout fires at once for delays above 2^31-1 ms (~24.8 days): clamp.
+        const ms = Math.min(Math.max(exp * 1000 - Date.now(), 0), 2_147_483_647);
         socket.data.expiryTimer = setTimeout(() => socket.disconnect(true), ms);
         socket.data.expiryTimer.unref();
       }

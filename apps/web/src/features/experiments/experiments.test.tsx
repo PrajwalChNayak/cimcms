@@ -33,7 +33,7 @@ const FUTURE_START = "2099-01-01T00:00:00.000Z";
 const FUTURE_END = "2099-01-08T00:00:00.000Z";
 
 const experiment = (over: Partial<ExperimentDto> = {}): ExperimentDto => ({
-  id: "665f000000000000000000e1",
+  id: "665f0000-0000-4000-8000-0000000000e1",
   code: "EXP-1",
   title: "Light spectrum trial",
   description: null,
@@ -91,8 +91,8 @@ beforeEach(() => {
       HttpResponse.json(
         envelope(
           page([
-            { id: "665f00000000000000000001", deviceId: "LED-01", name: "LED 1", type: "LED_CONTROLLER", createdAt: T0, updatedAt: T0, state: null },
-            { id: "665f00000000000000000002", deviceId: "HUM-01", name: "Hum", type: "HUMIDIFIER", createdAt: T0, updatedAt: T0, state: null },
+            { id: "665f0000-0000-4000-8000-000000000001", deviceId: "LED-01", name: "LED 1", type: "LED_CONTROLLER", createdAt: T0, updatedAt: T0, state: null },
+            { id: "665f0000-0000-4000-8000-000000000002", deviceId: "HUM-01", name: "Hum", type: "HUMIDIFIER", createdAt: T0, updatedAt: T0, state: null },
           ]),
         ),
       ),

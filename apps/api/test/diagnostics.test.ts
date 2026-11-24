@@ -25,7 +25,8 @@ const rtcSync = (role: keyof typeof tokens | null, id?: string) => {
   return req.send({});
 };
 
-const command = (commandId: string) => prisma.command.findUnique({ where: { commandId } });
+const command = (commandId: string) =>
+  prisma.command.findUnique({ where: { commandId }, include: { acks: { orderBy: { id: "asc" } } } });
 
 async function onlineDevice(opts: Parameters<Rig["sim"]>[0] = {}) {
   const sim = await rig.sim(opts);
@@ -127,14 +128,14 @@ describe("POST /devices/:id/rtc-sync", () => {
     expect(offline.status).toBe(409);
     expect(offline.body.errorCode).toBe("DEVICE_OFFLINE");
 
-    const unknown = await rtcSync("admin", "a".repeat(24));
+    const unknown = await rtcSync("admin", "00000000-0000-4000-8000-000000000000");
     expect(unknown.status).toBe(404);
     expect((await rtcSync("admin", "not-an-id")).status).toBe(400);
   });
 });
 
 describe("GET /system/status", () => {
-  it("is admin only (DEVICE_MANAGE) and reports mongo and mqtt", async () => {
+  it("is admin only (DEVICE_MANAGE) and reports database and mqtt", async () => {
     const get = (role: keyof typeof tokens | null) => {
       const req = request(app).get(`${API}/system/status`);
       return role ? req.set("Authorization", `Bearer ${tokens[role].token}`) : req;
@@ -145,6 +146,6 @@ describe("GET /system/status", () => {
     }
     const res = await get("admin");
     expect(res.status).toBe(200);
-    expect(res.body.result).toEqual({ status: "ok", mongo: "up", mqtt: "up" });
+    expect(res.body.result).toEqual({ status: "ok", database: "up", mqtt: "up" });
   });
 });

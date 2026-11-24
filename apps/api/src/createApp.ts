@@ -70,7 +70,10 @@ export const createApp = (): Express => {
       referrerPolicy: { policy: "same-origin" },
     }),
   );
-  app.use(cors({ origin: process.env.APP_BASE_URL, credentials: true }));
+  // Without APP_BASE_URL, cors() would allow every origin with credentials: refuse to start.
+  const appOrigin = process.env.APP_BASE_URL;
+  if (!appOrigin) throw new Error("APP_BASE_URL must be set (allowed browser origin)");
+  app.use(cors({ origin: appOrigin, credentials: true }));
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
   // Probes: root level, not authenticated, not rate limited.

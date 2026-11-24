@@ -6,7 +6,10 @@ export interface ExperimentJobOptions {
   intervalMs?: number;
 }
 
-/** Completes experiments whose period is over: devices go back to MANUAL and lose the experiment block. */
+/**
+ * Completes experiments whose period is over (devices go back to MANUAL and lose the
+ * experiment block), then puts devices that were left in EXPERIMENT mode back to MANUAL.
+ */
 export class ExperimentJob {
   private static timer: NodeJS.Timeout | undefined;
   private static running = false;
@@ -36,6 +39,12 @@ export class ExperimentJob {
         } catch (err) {
           logger.error("experiment completion failed", { id, error: String(err) });
         }
+      }
+      try {
+        const fixed = await ExperimentService.reconcileModes(now);
+        if (fixed.length > 0) logger.info("devices returned to MANUAL", { devices: fixed });
+      } catch (err) {
+        logger.error("experiment mode reconcile failed", { error: String(err) });
       }
       return done;
     } catch (err) {

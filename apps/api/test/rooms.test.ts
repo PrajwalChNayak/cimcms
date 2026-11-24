@@ -80,7 +80,7 @@ describe("rooms", () => {
     expect(dup.body.errorCode).toBe("ROOM_CODE_TAKEN");
     expect((await call("post", "/rooms", admin.token, { code: "bad code!", name: "x" })).status).toBe(400);
     expect((await call("put", `/rooms/${roomA}`, admin.token, {})).status).toBe(400);
-    const missing = await call("get", "/rooms/aaaaaaaaaaaaaaaaaaaaaaaa", viewer.token);
+    const missing = await call("get", "/rooms/00000000-0000-4000-8000-000000000000", viewer.token);
     expect(missing.status).toBe(404);
     expect(missing.body.errorCode).toBe("ROOM_NOT_FOUND");
   });

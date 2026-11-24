@@ -1,6 +1,6 @@
 import {
   createRoomBodySchema,
-  objectIdParamSchema,
+  idParamSchema,
   replaceChannelsBodySchema,
   roomChannelsQuerySchema,
   roomListQuerySchema,
@@ -20,23 +20,23 @@ export default (router: Router): void => {
   router.get("/rooms", ...read, validate({ query: roomListQuerySchema }), RoomController.list);
   router.post("/rooms", ...write, validate({ body: createRoomBodySchema }), RoomController.create);
   router.get("/room-channels", ...read, validate({ query: roomChannelsQuerySchema }), RoomController.channelView);
-  router.get("/rooms/:id", ...read, validate({ params: objectIdParamSchema }), RoomController.get);
+  router.get("/rooms/:id", ...read, validate({ params: idParamSchema }), RoomController.get);
   router.put(
     "/rooms/:id",
     ...write,
-    validate({ params: objectIdParamSchema, body: updateRoomBodySchema }),
+    validate({ params: idParamSchema, body: updateRoomBodySchema }),
     RoomController.update,
   );
   router.get(
     "/rooms/:id/channels",
     ...read,
-    validate({ params: objectIdParamSchema }),
+    validate({ params: idParamSchema }),
     RoomController.getChannels,
   );
   router.put(
     "/rooms/:id/channels",
     ...write,
-    validate({ params: objectIdParamSchema, body: replaceChannelsBodySchema }),
+    validate({ params: idParamSchema, body: replaceChannelsBodySchema }),
     RoomController.replaceChannels,
   );
 };

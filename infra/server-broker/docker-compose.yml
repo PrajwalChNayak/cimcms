@@ -1,0 +1,52 @@
+# CIMCMS own MQTT broker (@cimcms/broker) on the server (148.135.137.198). Replaces the
+# Mosquitto container (infra/server-mosquitto, superseded). Switch-over steps: README.md.
+#
+#   cp .env.example /opt/cimcms/secrets/broker.env   (outside git, chmod 600; fill in DATABASE_URL)
+#   docker compose up -d --build
+#
+# Logins come from table MqttAccount and retained messages from MqttRetained in the CIMCMS
+# database. The broker never runs migrations (the API does). Ports stay 1883 (and 8883 with TLS),
+# so the Humidifier and other clients need no change.
+name: cimcms-broker
+
+services:
+  broker:
+    build:
+      context: ../..
+      dockerfile: apps/broker/Dockerfile
+    image: cimcms-broker:${CIMCMS_BROKER_TAG:-local}
+    container_name: cimcms-broker
+    restart: unless-stopped
+    env_file:
+      - ${CIMCMS_SECRETS_DIR:-/opt/cimcms/secrets}/broker.env
+    environment:
+      BROKER_PORT: "1883"
+      BROKER_HEALTH_PORT: "8081"
+      # TLS: uncomment together with the 8883 port and the certificate volume below.
+      # BROKER_TLS_PORT: "8883"
+      # BROKER_TLS_CERT: /certs/fullchain.pem
+      # BROKER_TLS_KEY: /certs/privkey.pem
+    ports:
+      - "1883:1883"
+      # - "8883:8883"
+      # Health port is NOT published; the healthcheck runs inside the container.
+    # volumes:
+    #   # Let's Encrypt keeps symlinks under live/, so mount the whole folder read-only.
+    #   # The key must be readable by the container user (uid 1000, "node").
+    #   - /etc/letsencrypt:/etc/letsencrypt:ro
+    #   (then BROKER_TLS_CERT=/etc/letsencrypt/live/<mqtt-host>/fullchain.pem, KEY=.../privkey.pem)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # If the database is a Postgres container on this host published on a host port, the broker
+    # reaches it via host.docker.internal (see README "Database").
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

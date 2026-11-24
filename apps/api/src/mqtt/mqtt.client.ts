@@ -13,7 +13,11 @@ export type MessageHandler = (
 export interface PublishOptions {
   qos?: 0 | 1 | 2;
   retain?: boolean;
+  /** Reject when the broker has not confirmed the publish in time (default 3 s). */
+  timeoutMs?: number;
 }
+
+const PUBLISH_TIMEOUT_MS = 3_000;
 
 export interface ConnectOptions {
   url?: string;
@@ -113,12 +117,20 @@ export class MqttClient {
     if (!client || !MqttClient.connected) {
       return Promise.reject(new Error("MQTT not connected"));
     }
+    // A QoS 1 publish whose socket drops may never call back; give up after a bound so
+    // the caller can mark the command PUBLISH_FAILED instead of hanging.
+    const timeoutMs = opts.timeoutMs ?? PUBLISH_TIMEOUT_MS;
     return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`MQTT publish timed out after ${timeoutMs} ms`)), timeoutMs);
       client.publish(
         topic,
         payload,
         { qos: opts.qos ?? 1, retain: opts.retain ?? false },
-        (err) => (err ? reject(err) : resolve()),
+        (err) => {
+          clearTimeout(timer);
+          if (err) reject(err);
+          else resolve();
+        },
       );
     });
   }

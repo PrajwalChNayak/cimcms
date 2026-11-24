@@ -5,7 +5,7 @@ import { apiResponseSchema, parseResponse } from "@shared/utils/apiSchemas";
 const commandResponseSchema = apiResponseSchema(commandDtoSchema);
 
 export interface SubmitCommandArgs {
-  /** MongoDB ObjectId of the device (REST path, D-8) */
+  /** Database id (UUID) of the device (REST path, D-8) */
   deviceObjectId: string;
   body: SubmitCommandBody;
 }

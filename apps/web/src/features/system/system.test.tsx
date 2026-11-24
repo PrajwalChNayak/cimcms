@@ -51,7 +51,7 @@ const state = (over: Partial<DeviceStateDto> = {}): DeviceStateDto => ({
 });
 
 const led: DeviceListItemDto = {
-  id: "665f00000000000000000001",
+  id: "665f0000-0000-4000-8000-000000000001",
   deviceId: "LED-01",
   name: "LED Controller 1",
   type: "LED_CONTROLLER",
@@ -100,7 +100,7 @@ beforeEach(() => {
     http.get(apiUrl(`/devices/${led.id}/state`), () => HttpResponse.json(envelope(currentState))),
     http.get(apiUrl(`/devices/${led.id}/commands`), () => HttpResponse.json(envelope(page([])))),
     http.get(apiUrl("/system/status"), () =>
-      HttpResponse.json(envelope({ status: mqtt === "up" ? "ok" : "unavailable", mongo: "up", mqtt })),
+      HttpResponse.json(envelope({ status: mqtt === "up" ? "ok" : "unavailable", database: "up", mqtt })),
     ),
     http.post(apiUrl(`/devices/${led.id}/rtc-sync`), ({ request }) => {
       posts.push(request.headers.get("idempotency-key"));

@@ -145,6 +145,7 @@ class UserController {
       password as string,
       name as string,
       roles as string[] | undefined,
+      { roles: req.subject?.roles ?? [] },
     );
     handleSuccess(res, result, 'User created successfully');
   }
@@ -233,7 +234,12 @@ class UserController {
 
   static async resetPassword(req: Request, res: Response): Promise<void> {
     const { email, newPassword } = req.body;
-    await UserService.resetPassword(email as string, newPassword as string);
+    await UserService.resetPassword(
+      email as string,
+      newPassword as string,
+      { userId: req.subject?.userId, email: req.subject?.email, roles: req.subject?.roles ?? [] },
+      { ip: req.ip ?? null, requestId: req.requestId ?? null },
+    );
     handleSuccess(res, null, 'Password reset successfully');
   }
 }

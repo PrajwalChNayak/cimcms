@@ -5,6 +5,7 @@ import { createApp } from "@/createApp";
 import { ExperimentJob } from "@/jobs/experiment.job";
 import MqttClient from "@/mqtt/mqtt.client";
 import prisma from "@models/prisma.client";
+import ExperimentService from "@services/experiment.service";
 import { LED, startRig, type Rig } from "./rig";
 import { mintToken } from "./helpers/tokens";
 import { waitFor } from "./helpers/wait";
@@ -136,7 +137,7 @@ describe("experiment CRUD and validation", () => {
     expect((await call("get", "/experiments?status=RUNNING", "viewer")).body.result.data).toHaveLength(0);
     const audit = await prisma.auditLog.findFirst({ where: { entity: "Experiment", entityId: id } });
     expect(audit).toMatchObject({ action: "EXPERIMENT_CREATED", actorEmail: tokens.operator.email });
-    expect((await call("get", "/experiments/aaaaaaaaaaaaaaaaaaaaaaaa", "viewer")).body.errorCode).toBe("EXPERIMENT_NOT_FOUND");
+    expect((await call("get", "/experiments/00000000-0000-4000-8000-000000000000", "viewer")).body.errorCode).toBe("EXPERIMENT_NOT_FOUND");
   });
 
   it("validates code, dates, relays, windows and devices", async () => {
@@ -394,5 +395,49 @@ describe("start, pause, resume, stop", () => {
     expect(res.body.result.commandIds).toEqual([]);
     expect(await prisma.command.count({ where: { deviceId: LED.deviceId, action: "SET_MODE" } })).toBe(0);
     await waitFor(async () => (await latestConfig())?.configVersion === 2, 4000, "config v2");
+  });
+});
+
+describe("mode reconciliation (device offline at stop)", () => {
+  it("puts a device left in EXPERIMENT mode back to MANUAL once it is online and no experiment owns it", async () => {
+    const later = () => new Date(Date.now() + 60_000); // past the quiet period after the last SET_MODE
+    const sim = await onlineDevice();
+    const { id } = await create("operator");
+    await makeReady(id);
+    expect((await call("post", `/experiments/${id}/start`, "operator")).status).toBe(200);
+    await waitFor(async () => (await modeOf()) === "EXPERIMENT", 3000, "experiment mode");
+
+    // A RUNNING experiment owns the device: nothing to do.
+    expect(await ExperimentService.reconcileModes(later())).toEqual([]);
+
+    // The device drops off, then the experiment is stopped: its MANUAL command cannot be sent.
+    await sim.crash();
+    await waitFor(async () => (await rig.status())?.liveness === "OFFLINE", 3000, "offline");
+    const stop = await call("post", `/experiments/${id}/stop`, "operator");
+    expect(stop.body.result.experiment.status).toBe("STOPPED");
+    expect(stop.body.result.warnings.map((w: { code: string }) => w.code)).toContain("DEVICE_OFFLINE");
+
+    // It comes back still in EXPERIMENT mode.
+    await rig.sim({ executorIntervalMs: 0, mode: "EXPERIMENT", requireConfig: false });
+    await waitFor(
+      async () => {
+        const st = await rig.status();
+        return st?.liveness === "ONLINE" && (await modeOf()) === "EXPERIMENT";
+      },
+      5000,
+      "back online in EXPERIMENT",
+    );
+
+    expect(await ExperimentService.reconcileModes(later())).toEqual([LED.deviceId]);
+    await waitFor(async () => (await modeOf()) === "MANUAL", 3000, "manual again");
+    const cmd = await prisma.command.findFirstOrThrow({
+      where: { deviceId: LED.deviceId, source: "system", action: "SET_MODE" },
+      orderBy: { issuedAt: "desc" },
+    });
+    expect(cmd.params).toEqual({ mode: "MANUAL" });
+    expect(await prisma.auditLog.count({ where: { action: "EXPERIMENT_MODE_RECONCILED", entityId: cmd.commandId } })).toBe(1);
+
+    // Nothing left to fix.
+    expect(await ExperimentService.reconcileModes(later())).toEqual([]);
   });
 });

@@ -51,10 +51,8 @@ export class LivenessJob {
           select: { deviceId: true },
         });
         for (const { deviceId } of due) {
-          // Re-read: a message may have arrived since the query.
-          const fresh = await DeviceStateService.get(deviceId);
-          if (!fresh || fresh.liveness !== "ONLINE" || !fresh.lastSeenAt || fresh.lastSeenAt >= cutoff) continue;
-          if (await DeviceStateService.setLiveness(deviceId, type, "STALE")) changed++;
+          // Conditional update: skipped if a message arrived since the query.
+          if (await DeviceStateService.markStaleIfSilent(deviceId, cutoff)) changed++;
         }
       }
       return changed;

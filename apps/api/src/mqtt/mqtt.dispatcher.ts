@@ -34,6 +34,12 @@ export class MqttDispatcher {
     unregisteredLoggedAt.clear();
   }
 
+  /** Drops one device from the type cache (after it is registered, changed or removed). */
+  static forget(deviceId: string): void {
+    typeCache.delete(deviceId);
+    unregisteredLoggedAt.delete(deviceId);
+  }
+
   static async dispatch(topic: string, payload: Buffer, packet: IPublishPacket): Promise<void> {
     try {
       if (payload.length > MAX_MQTT_PAYLOAD_BYTES) {

@@ -1,4 +1,5 @@
-# Root build context for apps/api and apps/web images (docker build -f apps/<app>/Dockerfile .)
+# Root build context for apps/api, apps/web and apps/broker images (docker build -f apps/<app>/Dockerfile .)
+# apps/broker needs apps/api/src/models/tables/schema.prisma (shared Prisma schema): keep apps/api.
 .git
 **/node_modules
 **/dist
@@ -8,8 +9,9 @@
 !**/.env.example
 **/*.local
 infra/dev
+infra/server-*
 docs
 tools/**
 !tools/*/package.json
-playwright-report
-test-results
+**/playwright-report
+**/test-results

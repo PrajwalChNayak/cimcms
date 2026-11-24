@@ -1,7 +1,8 @@
 /**
  * Runs with apps/api as cwd through tsx (so the API's tsconfig path aliases resolve):
  *   tsx e2e/support/seed.api.ts   (see global-setup.ts)
- * Seeds RBAC, device LED-01 and the e2e users into DATABASE_URL (a scratch database).
+ * Seeds RBAC, device LED-01, the e2e users and the broker logins (MqttAccount: cimcms-backend
+ * SERVICE, LED-01 DEVICE) into DATABASE_URL (a scratch database).
  * Passwords come from E2E_*_PASSWORD env vars and are never printed.
  */
 import { PrismaClient } from "@prisma/client";
@@ -39,6 +40,19 @@ async function main(): Promise<void> {
     });
     const link = await prisma.userRole.findFirst({ where: { userId: user.id, roleId: role.id } });
     if (!link) await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
+  }
+  // Broker logins for the own broker (apps/broker reads table MqttAccount).
+  const now = new Date();
+  const accounts = [
+    { username: "cimcms-backend", kind: "SERVICE", deviceId: null, deviceType: null, pw: "E2E_MQTT_BACKEND_PASSWORD" },
+    { username: "LED-01", kind: "DEVICE", deviceId: "LED-01", deviceType: "LED_CONTROLLER", pw: "E2E_MQTT_LED01_PASSWORD" },
+  ] as const;
+  for (const a of accounts) {
+    const password = process.env[a.pw];
+    if (!password || password.length < 12) throw new Error(`${a.pw} must be set (min 12 chars)`);
+    const passwordHash = await Argon.hashPassword(password);
+    const data = { kind: a.kind, deviceId: a.deviceId, deviceType: a.deviceType, enabled: true, passwordHash, passwordSetAt: now, note: "e2e" };
+    await prisma.mqttAccount.upsert({ where: { username: a.username }, update: data, create: { username: a.username, ...data } });
   }
   console.log("e2e seed done");
 }

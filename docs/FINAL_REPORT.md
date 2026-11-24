@@ -3,6 +3,31 @@
 Date: 2026-11-22. Repo: `C:\project\cims_phase\cimcms` (local only, nothing pushed, no remote).
 Plan: `docs/plan.md`. Task detail, deviations and owner questions: `docs/PROGRESS.md`.
 
+## 0. Post-run review (2026-11-22, second session)
+
+The autorun result was checked and improved. Details: `docs/PROGRESS.md` D22 and D23. Not committed yet.
+
+- **Database: MongoDB → PostgreSQL 16** (owner decision O-1). Prisma migrations (`apps/api/src/models/tables/migrations`), UUID ids, foreign keys, `CommandAck` and `Telemetry` tables, advisory locks. Dev compose, prod compose, api image (runs `prisma migrate deploy` at start), backup/restore scripts and runbooks all moved to Postgres.
+- **Security fixes (7 critical, 2 high from an independent review):** unauthenticated device/farm/master routes; any logged-in token (including a public consumer registration) could create SUPER_ADMIN users, edit roles and permissions, or reset any password. All closed and covered by `apps/api/test/security.test.ts`.
+- **Reliability fixes:** command in-flight limit is now atomic, Idempotency-Key bound to the request, MQTT publish timeout, liveness sweeper race, all-or-nothing experiment pause/resume, atomic experiment READY claim.
+- **Follow-up fixes (D24):** devices left in EXPERIMENT mode after an offline stop are returned to MANUAL by the sweeper; two tabs refreshing at once no longer log the user out (10 s grace); local dev `.env` points at Postgres; old dev Mongo container stopped.
+- **Automatic broker accounts for devices (2026-11-23, D25):** with `MQTT_PROVISIONING=dynsec`, adding a device in the web app creates its own Mosquitto account through the Dynamic Security plugin, limited to that device's own topics. The random password is shown once to the admin and only the broker keeps its hash; Reset password and delete are in the web app, and all three actions are audited. Backend and admin MQTT credentials still never reach the browser. It runs on the dev broker next to the existing password and ACL files (verified). The production broker change is human-only (`docs/runbooks/mosquitto-hardening.md` step 13); until then the default `MQTT_PROVISIONING=manual` keeps today's manual way of creating device accounts.
+- **Own MQTT broker replaces Mosquitto (2026-11-24, D26):** `apps/broker` (aedes) takes logins from the CIMCMS database (`MqttAccount`) and keeps retained messages there, so the database backup covers both. Docker image, prod compose service `broker`, server bundle `infra/server-broker/` with switch-over and rollback steps (the Humidifier keeps its `mqttuser` password as a LEGACY account), dev via `npm run dev:broker`, and Playwright e2e starting the broker itself. The server switch-over is human-only (`infra/server-broker/README.md`, `docs/runbooks/broker.md`); Mosquitto files are kept for rollback.
+
+Verification on the final tree (2026-11-22):
+
+| Command | Result |
+| --- | --- |
+| `npm run typecheck` | 0 errors |
+| `npm run lint` | 0 errors (warnings: api 50, web 17) |
+| `npm test` | contracts 56/56, api 230/230 (21 files, embedded PostgreSQL 16, real migrations), web 127/127, device-sim 22/22 |
+| `npm run build` | contracts, api, web build |
+| `npx playwright test` (apps/web) | 11/11 pass (3.5 min) against dev PostgreSQL, dev Mosquitto, real API and simulator |
+| `docker build -f apps/api/Dockerfile .` | builds; on start the entrypoint applied `20261122101828_init` to an empty database; no `.env` in the image |
+| backup → restore | `backup-postgres.sh` + `restore-postgres.sh` round trip on the dev container |
+
+Sections 2 and 3 below describe the first (MongoDB) run and are kept for history; acceptance-criteria evidence is unchanged and still passes on PostgreSQL.
+
 ## 1. Tasks
 
 Several tasks share one commit because their changes interleave (parallel agents). Hashes are short.
@@ -67,7 +92,7 @@ No task is `blocked`. Phase F (firmware) and Phase 6 (physical) are human work a
 
 Flake fixed: one web test (lazy route chunk) timed out under load once. `asyncUtilTimeout` is now 8 s; 3 consecutive full web runs passed 127/127.
 
-Not run: GitHub Actions (no remote), `npm run db:push` against the dev `cimcms` database for the Phase 5 models, certbot/Let's Encrypt, the real mqtts broker, the full FRS smoke checklist on a staging server, the off-server backup copy.
+Not run: GitHub Actions (no remote), certbot/Let's Encrypt, the real mqtts broker, the full FRS smoke checklist on a staging server, the off-server backup copy.
 
 ## 3. FRS acceptance criteria (plan section 11)
 
@@ -95,14 +120,14 @@ Full list: `docs/PROGRESS.md` ("Questions for owner").
 - Q1/Q3: `.env`, `.env.dev`, `.env.prod` from the imported API repo are in Git history. Rotate JWT_SECRET_KEY, SESSION_SECRET_KEY, DATABASE_URL credentials, CLOUD_ACCESS_KEY/CLOUD_SECRET_KEY, MAIL_PASSWORD. Do not push before that.
 - Q2: no Zod existed in either app. Default used: Zod 4.6.7 everywhere.
 - O-3 relay commands blocked in AUTO/EXPERIMENT; O-4 TECHNICIAN only enters/leaves MAINTENANCE, MAINTENANCE relay commands need `DEVICE_DIAGNOSTICS`; O-5 device accepts live commands when RTC invalid, `clock_unverified` flag (firmware); O-6 no confirm for single relay; O-7 retention 365 days (telemetry, events, relay changes), commands and audit kept; O-9 no rooms seeded; O-10 no Raspberry Pi in MVP; O-12 Humidifier stays on 1883 with `mqttuser`; O-13 off-server backup destination unknown (`OFFSITE_CMD` hook); O-15 pause = SET_MODE MAINTENANCE, resume = SET_MODE EXPERIMENT, relays outside the experiment OFF; O-16 `steam`/`environment` topic segments are placeholders.
-- Security findings outside the plan (pre-existing, not changed): device, farm and master routes and `/auth/me` have `authenticateToken` commented out (unauthenticated). The consumer `/auth` login still signs 30-day tokens. `POST /user` needs only `authenticateToken`. Login timing is not equalised (rate limiter is the only enumeration defence).
+- Security findings from the first run (unauthenticated legacy routes, `POST /user` open to any token, login timing): **fixed 2026-11-22** (PROGRESS D23). Still open: the consumer `/auth` login signs 30-day tokens (they no longer pass any role or permission guard).
 
 ## 5. Human-only actions still to do, in order
 
 1. Rotate the secrets in section 4 (Q1/Q3). Decide whether to rewrite history before any push (`git filter-repo`); this run never rewrote history.
 2. Answer Q2 and the open decisions in plan section 13; adjust defaults in code at each `TODO(owner-decision O-x)`.
 3. Add a Git remote, push, confirm GitHub Actions `ci.yml` is green (Node 20, `npm ci`).
-4. Run `npm run db:push -w apps/api` on the dev Mongo, then on production at first deploy (Phase 5 models and unique indexes).
+4. Database: PostgreSQL migrations are applied automatically by the api container at start (`prisma migrate deploy`). Locally: `npm run db:deploy -w apps/api`.
 5. Execute `docs/runbooks/mosquitto-hardening.md` in a maintenance window (keep the `mqttuser` ACL block; verify the Humidifier). Senior review first.
 6. Provision server, DNS, certificate, secrets files; follow `docs/runbooks/deploy.md`; run the FRS smoke checklist; do a staging dry run.
 7. Set the off-server backup destination (O-13) and run the first restore drill (`docs/runbooks/backup-restore.md`).
@@ -124,10 +149,10 @@ npm run gp -w apps/api
 npm run dev:infra
 ```
 
-Create the broker accounts once (see `infra/dev/mosquitto/README.md`; passwords go only into git-ignored files). Create `apps/api/.env` from `apps/api/.env.example` (generate random JWT/session secrets and MQTT passwords), then:
+Create the broker accounts once (see `infra/dev/mosquitto/README.md`; passwords go only into git-ignored files). Create `apps/api/.env` from `apps/api/.env.example` (generate random JWT/session secrets and MQTT passwords; `DATABASE_URL` points at the dev Postgres on port 5433). An existing `apps/api/.env` from before 2026-11-22 still has a `mongodb://` URL: replace that line. Then:
 
 ```powershell
-npm run db:push -w apps/api
+npm run db:deploy -w apps/api
 $env:BOOTSTRAP_ADMIN_PASSWORD = '<at-least-12-characters>'
 npm run seed -w apps/api
 npm run seed:admin -w apps/api -- --email admin@example.test
@@ -146,4 +171,4 @@ npx playwright install chromium
 npx playwright test
 ```
 
-Playwright needs `npm run dev:infra` running and `infra/dev/.dev-credentials.local`; it uses its own scratch database `cimcms_e2e`.
+Playwright needs `npm run dev:infra` running (PostgreSQL on 127.0.0.1:5433 + Mosquitto) and `infra/dev/.dev-credentials.local`; it uses its own scratch database `cimcms_e2e`. API unit/integration tests need no Docker: they start an embedded PostgreSQL 16.

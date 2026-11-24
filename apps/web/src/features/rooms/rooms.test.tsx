@@ -16,7 +16,7 @@ const T0 = "2026-11-21T10:00:00.000Z";
 
 // TODO(owner-decision O-9): fixture names only, real rooms come from the owner.
 const room = (over: Partial<RoomDto> = {}): RoomDto => ({
-  id: "665f0000000000000000000a",
+  id: "665f0000-0000-4000-8000-00000000000a",
   farmId: null,
   code: "TRA",
   name: "Test Room A",
@@ -27,7 +27,7 @@ const room = (over: Partial<RoomDto> = {}): RoomDto => ({
   updatedAt: T0,
   ...over,
 });
-const roomB = room({ id: "665f0000000000000000000b", code: "TRB", name: "Test Room B", channelCount: 1 });
+const roomB = room({ id: "665f0000-0000-4000-8000-00000000000b", code: "TRB", name: "Test Room B", channelCount: 1 });
 
 const page = <T,>(data: T[]) => ({
   data,
@@ -47,7 +47,7 @@ describe("RoomsPage", () => {
       http.get(apiUrl("/rooms"), () => HttpResponse.json(envelope(page([room(), roomB])))),
       http.post(apiUrl("/rooms"), async ({ request }) => {
         created.push(await request.json());
-        return HttpResponse.json(envelope(room({ id: "665f0000000000000000000c", code: "TRC", name: "Test Room C", channelCount: 0 })), { status: 201 });
+        return HttpResponse.json(envelope(room({ id: "665f0000-0000-4000-8000-00000000000c", code: "TRC", name: "Test Room C", channelCount: 0 })), { status: 201 });
       }),
     );
     renderWithProviders(<RoomsPage />, { store: login(["ROOM_READ", "ROOM_WRITE"]) });
@@ -105,8 +105,8 @@ describe("RoomDetailPage channel picker", () => {
         HttpResponse.json(
           envelope(
             page([
-              { id: "665f00000000000000000001", deviceId: "LED-01", name: "LED 1", type: "LED_CONTROLLER", createdAt: T0, updatedAt: T0, state: null },
-              { id: "665f00000000000000000002", deviceId: "HUM-01", name: "Hum", type: "HUMIDIFIER", createdAt: T0, updatedAt: T0, state: null },
+              { id: "665f0000-0000-4000-8000-000000000001", deviceId: "LED-01", name: "LED 1", type: "LED_CONTROLLER", createdAt: T0, updatedAt: T0, state: null },
+              { id: "665f0000-0000-4000-8000-000000000002", deviceId: "HUM-01", name: "Hum", type: "HUMIDIFIER", createdAt: T0, updatedAt: T0, state: null },
             ]),
           ),
         ),

@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { E2E, baseURL } from "./e2e/support/env";
 
-// Needs dev infra up (npm run dev:infra) and infra/dev/.dev-credentials.local. See e2e/global-setup.ts.
+// Needs a local PostgreSQL (E2E_PG_* in e2e/support/env.ts). global-setup starts the own broker
+// (apps/broker) and the API itself; broker logins are generated into e2e/.env.e2e. See e2e/global-setup.ts.
 export default defineConfig({
   testDir: "./e2e",
   testMatch: /.*\.spec\.ts/,

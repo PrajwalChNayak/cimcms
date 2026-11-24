@@ -1,7 +1,7 @@
 import {
   createExperimentBodySchema,
   experimentListQuerySchema,
-  objectIdParamSchema,
+  idParamSchema,
   updateExperimentBodySchema,
 } from "@cimcms/contracts";
 import ExperimentController from "@controllers/experiment.controller";
@@ -14,7 +14,7 @@ export default (router: Router): void => {
   const read = [authenticateToken, requirePermission("EXPERIMENT_READ")] as const;
   const write = [authenticateToken, requirePermission("EXPERIMENT_WRITE")] as const;
   const run = [authenticateToken, requirePermission("EXPERIMENT_RUN")] as const;
-  const params = validate({ params: objectIdParamSchema });
+  const params = validate({ params: idParamSchema });
 
   router.get("/experiments", ...read, validate({ query: experimentListQuerySchema }), ExperimentController.list);
   router.post("/experiments", ...write, validate({ body: createExperimentBodySchema }), ExperimentController.create);
@@ -22,7 +22,7 @@ export default (router: Router): void => {
   router.put(
     "/experiments/:id",
     ...write,
-    validate({ params: objectIdParamSchema, body: updateExperimentBodySchema }),
+    validate({ params: idParamSchema, body: updateExperimentBodySchema }),
     ExperimentController.update,
   );
   router.get("/experiments/:id/devices", ...read, params, ExperimentController.devices);

@@ -100,7 +100,7 @@ const prismaKnownErrorMessages = (code: string, field: string): string =>
     P2020: `Value for '${field}' is out of range.`,
     P2021: `Invalid table specified.`,
     P2022: `Invalid column value for '${field}'.`,
-    P2023: `Inconsistent database state.`,
+    P2023: `Invalid identifier or column value.`,
     P2024: `A database timeout occurred. Please try again.`,
     P2025: `The requested record could not be found.`,
     P2026: `Unsupported operation.`,
